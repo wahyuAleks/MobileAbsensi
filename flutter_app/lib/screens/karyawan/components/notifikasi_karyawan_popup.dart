@@ -101,7 +101,8 @@ class NotifikasiKaryawanPopup extends StatefulWidget {
   }
 
   @override
-  State<NotifikasiKaryawanPopup> createState() => _NotifikasiKaryawanPopupState();
+  State<NotifikasiKaryawanPopup> createState() =>
+      _NotifikasiKaryawanPopupState();
 }
 
 class _NotifikasiKaryawanPopupState extends State<NotifikasiKaryawanPopup> {
@@ -130,11 +131,12 @@ class _NotifikasiKaryawanPopupState extends State<NotifikasiKaryawanPopup> {
         }).toList();
 
         return Container(
+          height: screenHeight * 0.82,
           constraints: BoxConstraints(
             maxHeight: screenHeight * 0.82,
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: MainAxisSize.max,
             children: [
               // 1. HEADER MODAL
               Padding(
@@ -249,8 +251,7 @@ class _NotifikasiKaryawanPopupState extends State<NotifikasiKaryawanPopup> {
                       _buildFilterChip(
                         id: 'absen',
                         label: 'Absensi',
-                        total:
-                            allItems.where((e) => e.tipe == 'absen').length,
+                        total: allItems.where((e) => e.tipe == 'absen').length,
                         unread: allItems
                             .where((e) => e.tipe == 'absen' && !e.isRead)
                             .length,
@@ -283,11 +284,10 @@ class _NotifikasiKaryawanPopupState extends State<NotifikasiKaryawanPopup> {
               const Divider(height: 1, color: Color(0xFFF3F4F6)),
 
               // 3. DAFTAR KARTU NOTIFIKASI
-              Flexible(
+              Expanded(
                 child: filteredItems.isEmpty
-                    ? _buildEmptyState()
+                    ? Center(child: _buildEmptyState())
                     : ListView.separated(
-                        shrinkWrap: true,
                         padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
                         itemCount: filteredItems.length,
                         separatorBuilder: (ctx, i) =>
@@ -322,9 +322,7 @@ class _NotifikasiKaryawanPopupState extends State<NotifikasiKaryawanPopup> {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected
-              ? primaryColor
-              : const Color(0xFFF3F4F6),
+          color: isSelected ? primaryColor : const Color(0xFFF3F4F6),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -547,7 +545,8 @@ class _NotifikasiKaryawanPopupState extends State<NotifikasiKaryawanPopup> {
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: isUnread
                       ? AppConstants.primaryColor.withValues(alpha: 0.05)
@@ -752,7 +751,8 @@ class _NotifikasiKaryawanPopupState extends State<NotifikasiKaryawanPopup> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Tutup', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('Tutup',
+                style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),

@@ -18,6 +18,7 @@ dependencies:
   provider: ^6.1.2
   url_launcher: ^6.3.0
   geocoding: ^3.0.0
+  google_mlkit_face_detection: ^0.14.0
 
 dev_dependencies:
   flutter_test:

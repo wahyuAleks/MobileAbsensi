@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image_picker/image_picker.dart';
 import 'validasi_lokasi_screen.dart';
 
@@ -20,7 +22,19 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
   File? _fotoWajah;
   bool _loadingGps = false;
   bool _isProcessing = false;
-  int _verifStep = 0; // 0: belum ada foto, 1: Deteksi Wajah, 2: Verifikasi Identitas, 3: Konfirmasi Hasil
+  int _verifStep = 0;
+  late final FaceDetector _faceDetector = FaceDetector(
+    options: FaceDetectorOptions(
+      performanceMode: FaceDetectorMode.fast,
+      minFaceSize: 0.1,
+    ),
+  );
+
+  @override
+  void dispose() {
+    unawaited(_faceDetector.close());
+    super.dispose();
+  }
 
   Future<void> _pilihAtauAmbilFoto() async {
     showModalBottomSheet(
@@ -45,16 +59,20 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
               ),
               const SizedBox(height: 14),
               ListTile(
-                leading: const Icon(Icons.camera_alt_rounded, color: Color(0xFF22C55E)),
-                title: const Text('Buka Kamera (Selfie)', style: TextStyle(color: Colors.white)),
+                leading: const Icon(Icons.camera_alt_rounded,
+                    color: Color(0xFF22C55E)),
+                title: const Text('Buka Kamera (Selfie)',
+                    style: TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _ambilFoto(ImageSource.camera);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library_rounded, color: Color(0xFF60A5FA)),
-                title: const Text('Pilih dari Galeri', style: TextStyle(color: Colors.white)),
+                leading: const Icon(Icons.photo_library_rounded,
+                    color: Color(0xFF60A5FA)),
+                title: const Text('Pilih dari Galeri',
+                    style: TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _ambilFoto(ImageSource.gallery);
@@ -84,28 +102,51 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
           _verifStep = 0;
         });
 
-        // 1. Simulasi bertahap: Deteksi Wajah
-        await Future.delayed(const Duration(milliseconds: 500));
+        final faces = await _faceDetector.processImage(
+          InputImage.fromFilePath(picked.path),
+        );
         if (!mounted) return;
-        setState(() => _verifStep = 1);
 
-        // 2. Simulasi bertahap: Verifikasi Identitas
-        await Future.delayed(const Duration(milliseconds: 600));
-        if (!mounted) return;
-        setState(() => _verifStep = 2);
+        if (faces.isEmpty) {
+          setState(() {
+            _fotoWajah = null;
+            _isProcessing = false;
+          });
+          _tampilkanAlert(
+            'Wajah Tidak Terdeteksi',
+            'Foto harus menampilkan wajah dengan jelas. Silakan ambil atau pilih foto wajah.',
+          );
+          return;
+        }
+        if (faces.length > 1) {
+          setState(() {
+            _fotoWajah = null;
+            _isProcessing = false;
+          });
+          _tampilkanAlert(
+            'Terdeteksi Lebih dari Satu Wajah',
+            'Pastikan foto hanya menampilkan wajah Anda seorang.',
+          );
+          return;
+        }
 
-        // 3. Simulasi bertahap: Konfirmasi Hasil
-        await Future.delayed(const Duration(milliseconds: 500));
-        if (!mounted) return;
         setState(() {
+          _fotoWajah = File(picked.path);
           _verifStep = 3;
           _isProcessing = false;
         });
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isProcessing = false);
-      _tampilkanAlert('Gagal Mengambil Foto', e.toString());
+      setState(() {
+        _fotoWajah = null;
+        _verifStep = 0;
+        _isProcessing = false;
+      });
+      _tampilkanAlert(
+        'Gagal Menganalisis Foto',
+        'Foto tidak dapat diperiksa. Coba ambil foto lain.\n${e.toString()}',
+      );
     }
   }
 
@@ -120,16 +161,19 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
         if (mounted) setState(() => _loadingGps = false);
-        _tampilkanAlert('Izin Lokasi', 'Izin lokasi (GPS) diperlukan untuk memvalidasi radius kantor.');
+        _tampilkanAlert('Izin Lokasi',
+            'Izin lokasi (GPS) diperlukan untuk memvalidasi radius kantor.');
         return;
       }
 
       final isGpsOn = await Geolocator.isLocationServiceEnabled();
       if (!isGpsOn) {
         if (mounted) setState(() => _loadingGps = false);
-        _tampilkanAlert('GPS Tidak Aktif', 'Harap aktifkan GPS / Lokasi perangkat terlebih dahulu.');
+        _tampilkanAlert('GPS Tidak Aktif',
+            'Harap aktifkan GPS / Lokasi perangkat terlebih dahulu.');
         return;
       }
 
@@ -144,7 +188,8 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
       } catch (_) {
         position = await Geolocator.getLastKnownPosition() ??
             await Geolocator.getCurrentPosition(
-              locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+              locationSettings:
+                  const LocationSettings(accuracy: LocationAccuracy.medium),
             );
       }
 
@@ -177,12 +222,16 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF27315B),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(title,
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold)),
         content: Text(pesan, style: const TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK', style: TextStyle(color: Color(0xFF22C55E), fontWeight: FontWeight.bold)),
+            child: const Text('OK',
+                style: TextStyle(
+                    color: Color(0xFF22C55E), fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -190,22 +239,27 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
   }
 
   String get _statusTitle {
-    if (_fotoWajah == null) return 'Ambil Foto Wajah';
     if (_isProcessing) return 'Memverifikasi Wajah...';
-    return 'Wajah Terverifikasi!';
+    if (_fotoWajah == null) return 'Ambil Foto Wajah';
+    return 'Wajah Terdeteksi!';
   }
 
   String get _statusSubtitle {
-    if (_fotoWajah == null) return 'Ketuk kotak kamera di atas untuk mengambil foto';
-    if (_isProcessing) return 'Sistem sedang menganalisis biometrik wajah Anda...';
-    return 'Posisikan wajah Anda di dalam frame kamera';
+    if (_fotoWajah == null) {
+      return 'Ketuk kotak kamera di atas untuk mengambil foto';
+    }
+    if (_isProcessing) {
+      return 'Sistem sedang memeriksa apakah foto berisi satu wajah...';
+    }
+    return 'Satu wajah terdeteksi. Lanjutkan validasi lokasi.';
   }
 
   @override
   Widget build(BuildContext context) {
     const bgColor = Color(0xFF1E2548);
     final isMasuk = widget.isMasuk;
-    final bool canContinue = _fotoWajah != null && _verifStep >= 3 && !_isProcessing && !_loadingGps;
+    final bool canContinue =
+        _fotoWajah != null && _verifStep >= 3 && !_isProcessing && !_loadingGps;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -252,9 +306,12 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
 
                   // Status Badge Pill di Kanan Atas
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
-                      color: isMasuk ? const Color(0xFFD6DBED) : const Color(0xFF1E432B),
+                      color: isMasuk
+                          ? const Color(0xFFD6DBED)
+                          : const Color(0xFF1E432B),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -262,7 +319,9 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: isMasuk ? const Color(0xFF2C355E) : const Color(0xFF4ADE80),
+                        color: isMasuk
+                            ? const Color(0xFF2C355E)
+                            : const Color(0xFF4ADE80),
                       ),
                     ),
                   ),
@@ -358,7 +417,8 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
                             Positioned(
                               bottom: 12,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
                                   color: Colors.black.withValues(alpha: 0.65),
                                   borderRadius: BorderRadius.circular(20),
@@ -366,11 +426,15 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.check_circle_rounded, color: Color(0xFF22C55E), size: 16),
+                                    Icon(Icons.check_circle_rounded,
+                                        color: Color(0xFF22C55E), size: 16),
                                     SizedBox(width: 6),
                                     Text(
-                                      'Terverifikasi • Ketuk ganti',
-                                      style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
+                                      'Wajah terdeteksi • Ketuk ganti',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.bold),
                                     ),
                                   ],
                                 ),
@@ -404,12 +468,16 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
               ),
               const SizedBox(height: 32),
 
-              // 3. Checklist Status Box Bertahap (Permintaan 3)
-              _buildChecklistTile('Deteksi Wajah', _verifStep >= 1, _isProcessing && _verifStep == 0),
-              const SizedBox(height: 12),
-              _buildChecklistTile('Verifikasi Identitas', _verifStep >= 2, _isProcessing && _verifStep == 1),
-              const SizedBox(height: 12),
-              _buildChecklistTile('Konfirmasi Hasil', _verifStep >= 3, _isProcessing && _verifStep == 2),
+              // Face presence is detected locally; this does not verify identity.
+              _buildChecklistTile(
+                _isProcessing
+                    ? 'Memeriksa foto wajah'
+                    : _verifStep >= 3
+                        ? 'Satu wajah berhasil terdeteksi'
+                        : 'Menunggu deteksi wajah',
+                _verifStep >= 3,
+                _isProcessing,
+              ),
               const SizedBox(height: 36),
 
               // 4. Tombol Aksi: Lanjut Validasi GPS (Hanya aktif jika foto & verifikasi selesai)
@@ -421,7 +489,8 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
                     backgroundColor: canContinue
                         ? const Color(0xFF43732E)
                         : const Color(0xFF293252),
-                    foregroundColor: canContinue ? Colors.white : Colors.white38,
+                    foregroundColor:
+                        canContinue ? Colors.white : Colors.white38,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -432,7 +501,8 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
                       ? const SizedBox(
                           width: 22,
                           height: 22,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
                         )
                       : Text(
                           'Lanjut Validasi GPS',
@@ -472,7 +542,8 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
             width: 26,
             height: 26,
             decoration: BoxDecoration(
-              color: isChecked ? const Color(0xFF22C55E) : const Color(0xFF1E2548),
+              color:
+                  isChecked ? const Color(0xFF22C55E) : const Color(0xFF1E2548),
               shape: BoxShape.circle,
               border: isChecked
                   ? null
@@ -501,7 +572,8 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
             style: TextStyle(
               fontSize: 14.5,
               fontWeight: isChecked ? FontWeight.bold : FontWeight.w500,
-              color: isChecked ? const Color(0xFF22C55E) : const Color(0xFF9CA3AF),
+              color:
+                  isChecked ? const Color(0xFF22C55E) : const Color(0xFF9CA3AF),
             ),
           ),
         ],
