@@ -17,6 +17,7 @@ const Absensi = sequelize.define('Absensi', {
     allowNull: false,
   },
   jam_masuk: DataTypes.TIME,
+  jam_masuk_target: DataTypes.TIME,
   jam_pulang: DataTypes.TIME,
   foto_masuk: DataTypes.STRING,
   foto_pulang: DataTypes.STRING,

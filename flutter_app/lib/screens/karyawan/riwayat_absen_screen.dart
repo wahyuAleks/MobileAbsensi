@@ -212,14 +212,20 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
         final rawSt = (item['status'] ?? '').toString().toLowerCase();
         if (rawSt.contains('cuti') || rawSt.contains('izin')) {
           status = 'Izin Cuti';
+        } else if (rawSt == 'telat' || rawSt.contains('terlambat')) {
+          status = 'Terlambat';
         } else if (jamMsk != '—') {
-          // Peraturan jam masuk 08:00 WIB
+          final jamTargetRaw =
+              (item['jam_masuk_target'] ?? '08:00:00').toString();
+          final target = jamTargetRaw.split(':');
           final parts = jamMsk.split(':');
-          final jamInt = int.tryParse(parts.first) ?? 0;
-          final menitInt = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
-          if (jamInt > 8 || (jamInt == 8 && menitInt > 0)) {
+          final actualMinutes = (int.tryParse(parts.first) ?? 0) * 60 +
+              (int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0);
+          final targetMinutes = (int.tryParse(target.first) ?? 8) * 60 +
+              (int.tryParse(target.length > 1 ? target[1] : '0') ?? 0);
+          if (actualMinutes > targetMinutes) {
             status = 'Terlambat';
-          } else if (jamInt < 8) {
+          } else if (actualMinutes < targetMinutes) {
             status = 'Datang Lebih Awal';
           } else {
             status = 'Tepat Waktu';
@@ -236,6 +242,7 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
           'status': status,
           'jam_masuk': jamMsk,
           'jam_pulang': jamPlg,
+          'jam_masuk_target': item['jam_masuk_target'],
           'foto_masuk': item['foto_masuk'],
           'foto_pulang': item['foto_pulang'],
           'lat_masuk': item['lat_masuk'],

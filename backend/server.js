@@ -7,6 +7,8 @@ const sequelize = require('./src/config/db');
 
 // models (perlu di-require supaya asosiasi & sync jalan)
 require('./src/models/User');
+require('./src/models/Location');
+require('./src/models/WorkSchedule');
 require('./src/models/Absensi');
 require('./src/models/Cuti');
 require('./src/models/Laporan');
@@ -18,6 +20,7 @@ const cutiRoutes = require('./src/routes/cutiRoutes');
 const laporanRoutes = require('./src/routes/laporanRoutes');
 const karyawanRoutes = require('./src/routes/karyawanRoutes');
 const notifikasiRoutes = require('./src/routes/notifikasiRoutes');
+const locationRoutes = require('./src/routes/locationRoutes');
 
 const app = express();
 
@@ -34,6 +37,7 @@ app.use('/api/cuti', cutiRoutes);
 app.use('/api/laporan', laporanRoutes);
 app.use('/api/karyawan', karyawanRoutes);
 app.use('/api/notifikasi', notifikasiRoutes);
+app.use('/api/lokasi', locationRoutes);
 
 app.get('/', (req, res) => res.json({ message: 'Absensi API aktif' }));
 
@@ -41,7 +45,23 @@ const PORT = process.env.PORT || 3000;
 const { exec } = require('child_process');
 const bcrypt = require('bcryptjs');
 const mysql = require('mysql2/promise');
+const { DataTypes } = require('sequelize');
 const User = require('./src/models/User');
+const Location = require('./src/models/Location');
+
+const DEFAULT_LOCATIONS = [
+  'Dhoho I',
+  'Dhoho II',
+  'Lumajang I',
+  'Lumajang II',
+  'Mumbul I',
+  'Mumbul II',
+  'Kalitelepak',
+  'Banyuwangi',
+  'CIMA I',
+  'CIMA II',
+  'Bungamayang',
+];
 
 async function ensureDatabaseExists() {
   const host = process.env.DB_HOST || 'localhost';
@@ -79,6 +99,38 @@ function tryAdbReverse(port) {
 setInterval(() => {
   exec(`adb reverse tcp:${PORT} tcp:${PORT}`, () => {});
 }, 3000);
+
+async function seedDefaultLocations() {
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      setting_key VARCHAR(100) NOT NULL PRIMARY KEY,
+      setting_value VARCHAR(255) NOT NULL
+    )
+  `);
+  const [settings] = await sequelize.query(
+    'SELECT setting_value FROM app_settings WHERE setting_key = ?',
+    { replacements: ['default_locations_seeded'] },
+  );
+  if (settings.length > 0) {
+    console.log('✓ Inisialisasi lokasi default sudah pernah dilakukan.');
+    return;
+  }
+
+  const existingCount = await Location.count();
+  if (existingCount === 0) {
+    for (const nama of DEFAULT_LOCATIONS) {
+      await Location.findOrCreate({ where: { nama } });
+    }
+    console.log(`✓ ${DEFAULT_LOCATIONS.length} lokasi kerja siap digunakan.`);
+  } else {
+    console.log(`✓ ${existingCount} lokasi kerja tersimpan.`);
+  }
+
+  await sequelize.query(
+    'INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?)',
+    { replacements: ['default_locations_seeded', '1'] },
+  );
+}
 
 async function seedDefaultUsers() {
   try {
@@ -170,11 +222,35 @@ async function syncExistingCutiNotifications() {
   }
 }
 
+async function ensureAttendanceScheduleColumns() {
+  const queryInterface = sequelize.getQueryInterface();
+  const users = await queryInterface.describeTable('users');
+  if (!users.location_id) {
+    await queryInterface.addColumn('users', 'location_id', {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'locations', key: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+    });
+  }
+
+  const absensi = await queryInterface.describeTable('absensi');
+  if (!absensi.jam_masuk_target) {
+    await queryInterface.addColumn('absensi', 'jam_masuk_target', {
+      type: DataTypes.TIME,
+      allowNull: true,
+    });
+  }
+}
+
 async function startServer() {
   try {
     await ensureDatabaseExists();
     await sequelize.sync(); // ganti { alter: true } saat development kalau skema berubah
+    await ensureAttendanceScheduleColumns();
     console.log('✓ Database terhubung & model tersinkronisasi');
+    await seedDefaultLocations();
     await seedDefaultUsers();
     await syncExistingCutiNotifications();
     app.listen(PORT, '0.0.0.0', () => {

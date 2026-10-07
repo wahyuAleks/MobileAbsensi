@@ -286,28 +286,27 @@ class ApiService {
     String? uraianPekerjaan,
     String? hasil,
     String? rencanaEsok,
+    File? lampiran,
     String status = 'Terkirim',
   }) async {
-    final res = await http
-        .post(
-          Uri.parse('${AppConstants.baseUrl}/laporan'),
-          headers: await _headers(),
-          body: jsonEncode({
-            'tanggal': tanggal,
-            'judul': judul,
-            'isi_laporan': isiLaporan,
-            if (jenisKegiatan != null) 'jenis_kegiatan': jenisKegiatan,
-            if (lokasi != null) 'lokasi': lokasi,
-            if (unitDrone != null) 'unit_drone': unitDrone,
-            if (luasArea != null) 'luas_area': luasArea,
-            if (uraianPekerjaan != null) 'uraian_pekerjaan': uraianPekerjaan,
-            if (hasil != null) 'hasil': hasil,
-            if (rencanaEsok != null) 'rencana_esok': rencanaEsok,
-            'status': status,
-          }),
-        )
-        .timeout(const Duration(seconds: 15));
-    return _handle(res);
+    return _requestLaporan(
+      'POST',
+      '/laporan',
+      {
+        'tanggal': tanggal,
+        'judul': judul,
+        'isi_laporan': isiLaporan,
+        if (jenisKegiatan != null) 'jenis_kegiatan': jenisKegiatan,
+        if (lokasi != null) 'lokasi': lokasi,
+        if (unitDrone != null) 'unit_drone': unitDrone,
+        if (luasArea != null) 'luas_area': luasArea,
+        if (uraianPekerjaan != null) 'uraian_pekerjaan': uraianPekerjaan,
+        if (hasil != null) 'hasil': hasil,
+        if (rencanaEsok != null) 'rencana_esok': rencanaEsok,
+        'status': status,
+      },
+      lampiran: lampiran,
+    );
   }
 
   static Future<Map<String, dynamic>> updateDraft(
@@ -322,26 +321,25 @@ class ApiService {
     String? uraianPekerjaan,
     String? hasil,
     String? rencanaEsok,
+    File? lampiran,
   }) async {
-    final res = await http
-        .put(
-          Uri.parse('${AppConstants.baseUrl}/laporan/$id'),
-          headers: await _headers(),
-          body: jsonEncode({
-            'tanggal': tanggal,
-            'judul': judul,
-            'isi_laporan': isiLaporan,
-            if (jenisKegiatan != null) 'jenis_kegiatan': jenisKegiatan,
-            if (lokasi != null) 'lokasi': lokasi,
-            if (unitDrone != null) 'unit_drone': unitDrone,
-            if (luasArea != null) 'luas_area': luasArea,
-            if (uraianPekerjaan != null) 'uraian_pekerjaan': uraianPekerjaan,
-            if (hasil != null) 'hasil': hasil,
-            if (rencanaEsok != null) 'rencana_esok': rencanaEsok,
-          }),
-        )
-        .timeout(const Duration(seconds: 15));
-    return _handle(res);
+    return _requestLaporan(
+      'PUT',
+      '/laporan/$id',
+      {
+        'tanggal': tanggal,
+        'judul': judul,
+        'isi_laporan': isiLaporan,
+        if (jenisKegiatan != null) 'jenis_kegiatan': jenisKegiatan,
+        if (lokasi != null) 'lokasi': lokasi,
+        if (unitDrone != null) 'unit_drone': unitDrone,
+        if (luasArea != null) 'luas_area': luasArea,
+        if (uraianPekerjaan != null) 'uraian_pekerjaan': uraianPekerjaan,
+        if (hasil != null) 'hasil': hasil,
+        if (rencanaEsok != null) 'rencana_esok': rencanaEsok,
+      },
+      lampiran: lampiran,
+    );
   }
 
   static Future<Map<String, dynamic>> kirimDraft(
@@ -356,26 +354,79 @@ class ApiService {
     String? uraianPekerjaan,
     String? hasil,
     String? rencanaEsok,
+    File? lampiran,
   }) async {
-    final res = await http
-        .put(
-          Uri.parse('${AppConstants.baseUrl}/laporan/$id/kirim'),
-          headers: await _headers(),
-          body: jsonEncode({
-            'tanggal': tanggal,
-            'judul': judul,
-            'isi_laporan': isiLaporan,
-            if (jenisKegiatan != null) 'jenis_kegiatan': jenisKegiatan,
-            if (lokasi != null) 'lokasi': lokasi,
-            if (unitDrone != null) 'unit_drone': unitDrone,
-            if (luasArea != null) 'luas_area': luasArea,
-            if (uraianPekerjaan != null) 'uraian_pekerjaan': uraianPekerjaan,
-            if (hasil != null) 'hasil': hasil,
-            if (rencanaEsok != null) 'rencana_esok': rencanaEsok,
-          }),
-        )
-        .timeout(const Duration(seconds: 15));
-    return _handle(res);
+    return _requestLaporan(
+      'PUT',
+      '/laporan/$id/kirim',
+      {
+        'tanggal': tanggal,
+        'judul': judul,
+        'isi_laporan': isiLaporan,
+        if (jenisKegiatan != null) 'jenis_kegiatan': jenisKegiatan,
+        if (lokasi != null) 'lokasi': lokasi,
+        if (unitDrone != null) 'unit_drone': unitDrone,
+        if (luasArea != null) 'luas_area': luasArea,
+        if (uraianPekerjaan != null) 'uraian_pekerjaan': uraianPekerjaan,
+        if (hasil != null) 'hasil': hasil,
+        if (rencanaEsok != null) 'rencana_esok': rencanaEsok,
+      },
+      lampiran: lampiran,
+    );
+  }
+
+  static Future<Map<String, dynamic>> editLaporanAdmin(
+    int id, {
+    required String tanggal,
+    required String judul,
+    required String isiLaporan,
+    String? jenisKegiatan,
+    String? lokasi,
+    String? unitDrone,
+    String? luasArea,
+    String? uraianPekerjaan,
+    String? hasil,
+    String? rencanaEsok,
+    File? lampiran,
+  }) async {
+    return _requestLaporan(
+      'PUT',
+      '/laporan/$id/admin-edit',
+      {
+        'tanggal': tanggal,
+        'judul': judul,
+        'isi_laporan': isiLaporan,
+        if (jenisKegiatan != null) 'jenis_kegiatan': jenisKegiatan,
+        if (lokasi != null) 'lokasi': lokasi,
+        if (unitDrone != null) 'unit_drone': unitDrone,
+        if (luasArea != null) 'luas_area': luasArea,
+        if (uraianPekerjaan != null) 'uraian_pekerjaan': uraianPekerjaan,
+        if (hasil != null) 'hasil': hasil,
+        if (rencanaEsok != null) 'rencana_esok': rencanaEsok,
+      },
+      lampiran: lampiran,
+    );
+  }
+
+  static Future<Map<String, dynamic>> _requestLaporan(
+    String method,
+    String path,
+    Map<String, String> fields, {
+    File? lampiran,
+  }) async {
+    final request = http.MultipartRequest(
+      method,
+      Uri.parse('${AppConstants.baseUrl}$path'),
+    );
+    request.headers.addAll(await _headers(json: false));
+    request.fields.addAll(fields);
+    if (lampiran != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath('lampiran', lampiran.path),
+      );
+    }
+    final streamed = await request.send().timeout(const Duration(seconds: 25));
+    return _handle(await http.Response.fromStream(streamed));
   }
 
   static Future<List<dynamic>> laporanSaya() async {
@@ -441,6 +492,75 @@ class ApiService {
         )
         .timeout(const Duration(seconds: 15));
     _handle(res);
+  }
+
+  // ---------- LOKASI & JAM MASUK (ADMIN) ----------
+  static Future<List<dynamic>> daftarLokasi() async {
+    final res = await http
+        .get(
+          Uri.parse('${AppConstants.baseUrl}/lokasi'),
+          headers: await _headers(),
+        )
+        .timeout(const Duration(seconds: 15));
+    return _handleList(res);
+  }
+
+  static Future<Map<String, dynamic>> simpanLokasi(
+    String nama, {
+    int? id,
+  }) async {
+    final uri = Uri.parse(
+      id == null
+          ? '${AppConstants.baseUrl}/lokasi'
+          : '${AppConstants.baseUrl}/lokasi/$id',
+    );
+    final res = id == null
+        ? await http
+            .post(uri,
+                headers: await _headers(), body: jsonEncode({'nama': nama}))
+            .timeout(const Duration(seconds: 15))
+        : await http
+            .put(uri,
+                headers: await _headers(), body: jsonEncode({'nama': nama}))
+            .timeout(const Duration(seconds: 15));
+    return _handle(res);
+  }
+
+  static Future<void> hapusLokasi(int id) async {
+    final res = await http
+        .delete(
+          Uri.parse('${AppConstants.baseUrl}/lokasi/$id'),
+          headers: await _headers(),
+        )
+        .timeout(const Duration(seconds: 15));
+    _handle(res);
+  }
+
+  static Future<Map<String, dynamic>> jadwalLokasi(
+    int id,
+    String tanggal,
+  ) async {
+    final uri = Uri.parse('${AppConstants.baseUrl}/lokasi/$id/jadwal')
+        .replace(queryParameters: {'tanggal': tanggal});
+    final res = await http
+        .get(uri, headers: await _headers())
+        .timeout(const Duration(seconds: 15));
+    return _handle(res);
+  }
+
+  static Future<Map<String, dynamic>> simpanJadwalLokasi({
+    required int id,
+    required String tanggal,
+    required String jamMasuk,
+  }) async {
+    final res = await http
+        .put(
+          Uri.parse('${AppConstants.baseUrl}/lokasi/$id/jadwal'),
+          headers: await _headers(),
+          body: jsonEncode({'tanggal': tanggal, 'jam_masuk': jamMasuk}),
+        )
+        .timeout(const Duration(seconds: 15));
+    return _handle(res);
   }
 
   static Future<List<dynamic>> rekapAbsensiAdmin(

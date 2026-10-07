@@ -1,8 +1,30 @@
 -- Schema: create_schema.sql
--- Creates tables: users, absensi, cuti, laporan
+-- Creates tables: locations, users, work_schedules, absensi, cuti, laporan
 -- Run after creating the database (example: USE absensi_db;)
 
 SET FOREIGN_KEY_CHECKS = 0;
+
+CREATE TABLE IF NOT EXISTS `locations` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `nama` VARCHAR(255) NOT NULL,
+  `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `locations_nama_unique` (`nama`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO `locations` (`nama`) VALUES
+('Dhoho I'),
+('Dhoho II'),
+('Lumajang I'),
+('Lumajang II'),
+('Mumbul I'),
+('Mumbul II'),
+('Kalitelepak'),
+('Banyuwangi'),
+('CIMA I'),
+('CIMA II'),
+('Bungamayang');
 
 CREATE TABLE IF NOT EXISTS `users` (
   `id` INT NOT NULL AUTO_INCREMENT,
@@ -13,11 +35,14 @@ CREATE TABLE IF NOT EXISTS `users` (
   `jabatan` VARCHAR(255) DEFAULT NULL,
   `no_hp` VARCHAR(50) DEFAULT NULL,
   `foto_profil` VARCHAR(255) DEFAULT NULL,
+  `location_id` INT DEFAULT NULL,
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
   `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `users_email_unique` (`email`)
+  UNIQUE KEY `users_email_unique` (`email`),
+  KEY `users_location_id_idx` (`location_id`),
+  CONSTRAINT `users_location_fk` FOREIGN KEY (`location_id`) REFERENCES `locations`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `absensi` (
@@ -25,6 +50,7 @@ CREATE TABLE IF NOT EXISTS `absensi` (
   `user_id` INT NOT NULL,
   `tanggal` DATE NOT NULL,
   `jam_masuk` TIME DEFAULT NULL,
+  `jam_masuk_target` TIME DEFAULT NULL,
   `jam_pulang` TIME DEFAULT NULL,
   `foto_masuk` VARCHAR(255) DEFAULT NULL,
   `foto_pulang` VARCHAR(255) DEFAULT NULL,
@@ -38,6 +64,18 @@ CREATE TABLE IF NOT EXISTS `absensi` (
   PRIMARY KEY (`id`),
   KEY `absensi_user_id_idx` (`user_id`),
   CONSTRAINT `absensi_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `work_schedules` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `location_id` INT NOT NULL,
+  `tanggal` DATE NOT NULL,
+  `jam_masuk` TIME NOT NULL,
+  `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `work_schedules_location_tanggal_unique` (`location_id`, `tanggal`),
+  CONSTRAINT `work_schedules_location_fk` FOREIGN KEY (`location_id`) REFERENCES `locations`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `cuti` (

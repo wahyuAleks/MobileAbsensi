@@ -422,7 +422,9 @@ class _HomeAdminScreenState extends State<HomeAdminScreen> {
                           final nama = (user['nama'] ?? 'Ahmad Fauzi').toString();
                           final jabatan = (user['jabatan'] ?? 'Teknisi Drone').toString();
                           final jamMasuk = (item['jam_masuk'] ?? '07:58').toString();
-                          final isTerlambat = (item['status'] ?? '').toString().toLowerCase().contains('terlambat');
+                          final status = (item['status'] ?? '').toString().toLowerCase();
+                          final isTerlambat =
+                              status.contains('terlambat') || status.contains('telat');
 
                           return _buildTableRow(
                             initials: _getInitials(nama),

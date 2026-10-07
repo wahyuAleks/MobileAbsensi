@@ -91,36 +91,34 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
       try {
         final lat = widget.position?.latitude ?? -6.949161;
         final lng = widget.position?.longitude ?? 107.645018;
+        String statusKirim;
 
         if (widget.isMasuk) {
-          await ApiService.absenMasuk(
+          final hasil = await ApiService.absenMasuk(
             foto: widget.fotoWajah!,
             lat: lat,
             lng: lng,
           );
+          final status = (hasil['data']?['status'] ?? '').toString().toLowerCase();
+          if (status == 'telat') {
+            statusKirim = 'Terlambat';
+          } else {
+            final jamMasuk = (hasil['data']?['jam_masuk'] ?? '').toString();
+            final jamTarget = (hasil['jam_masuk_target'] ?? '08:00:00').toString();
+            statusKirim = jamMasuk.compareTo(jamTarget) < 0
+                ? 'Datang Lebih Awal'
+                : 'Tepat Waktu';
+          }
         } else {
           await ApiService.absenPulang(
             foto: widget.fotoWajah!,
             lat: lat,
             lng: lng,
           );
-        }
-
-        if (!mounted) return;
-        String statusKirim;
-        if (widget.isMasuk) {
-          final now = DateTime.now();
-          if (now.hour > 8 || (now.hour == 8 && now.minute > 0)) {
-            statusKirim = 'Terlambat';
-          } else if (now.hour < 8) {
-            statusKirim = 'Datang Lebih Awal';
-          } else {
-            statusKirim = 'Tepat Waktu';
-          }
-        } else {
           statusKirim = 'Sudah Pulang';
         }
 
+        if (!mounted) return;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) => AbsenSuksesScreen(

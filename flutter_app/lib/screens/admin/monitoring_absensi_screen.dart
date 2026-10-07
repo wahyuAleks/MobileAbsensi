@@ -516,7 +516,7 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
                             ? '${parts[0]}\n${parts.sublist(1).join(' ')}'
                             : rawNama;
 
-                        // Tentukan status berdasarkan patokan jam 08:00 WIB
+                        // Backend menyimpan status berdasarkan jadwal lokasi pada tanggal itu.
                         String itemStatus = 'hadir';
                         if (statusStr.contains('terlambat') || statusStr == 'telat') {
                           itemStatus = 'terlambat';
@@ -524,16 +524,6 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
                           itemStatus = 'cuti';
                         } else if (jamMasuk == '—' || jamMasuk.isEmpty || statusStr.contains('belum')) {
                           itemStatus = 'belum';
-                        } else {
-                          final clean = jamMasuk.replaceAll(' WIB', '').trim();
-                          final p = clean.split(':');
-                          if (p.length >= 2) {
-                            final h = int.tryParse(p[0]) ?? 0;
-                            final m = int.tryParse(p[1]) ?? 0;
-                            if (h > 8 || (h == 8 && m > 0)) {
-                              itemStatus = 'terlambat';
-                            }
-                          }
                         }
 
                         return {

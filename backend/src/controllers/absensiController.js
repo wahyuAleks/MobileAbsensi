@@ -1,14 +1,43 @@
 const { Op } = require('sequelize');
 const Absensi = require('../models/Absensi');
 const User = require('../models/User');
+const WorkSchedule = require('../models/WorkSchedule');
+const Location = require('../models/Location');
 const { isDalamRadiusKantor } = require('../utils/geo');
 
+function waktuWib() {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map(({ type, value: part }) => [type, part]));
+  return {
+    tanggal: `${value.year}-${value.month}-${value.day}`,
+    jam: `${value.hour}:${value.minute}:${value.second}`,
+  };
+}
+
 function hariIni() {
-  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  return waktuWib().tanggal;
 }
 
 function jamSekarang() {
-  return new Date().toTimeString().slice(0, 8); // HH:MM:SS
+  return waktuWib().jam;
+}
+
+async function jamMasukTarget(userId, tanggal) {
+  const user = await User.findByPk(userId, { attributes: ['location_id'] });
+  if (!user || !user.location_id) return '08:00:00';
+  const jadwal = await WorkSchedule.findOne({
+    where: { location_id: user.location_id, tanggal },
+  });
+  return jadwal ? jadwal.jam_masuk : '08:00:00';
 }
 
 // ABSENSI MASUK: ambil foto + validasi GPS
@@ -36,19 +65,24 @@ exports.absenMasuk = async (req, res) => {
     }
 
     const jam = jamSekarang();
-    // Patokan jam masuk 08:00 WIB: jika lewat 08:00:00 dianggap telat
-    const isTelat = jam > '08:00:00';
+    const batasJamMasuk = await jamMasukTarget(req.user.id, tanggal);
+    const isTelat = jam > batasJamMasuk;
     const status = isTelat ? 'telat' : 'hadir';
 
     const data = sudah || await Absensi.create({ user_id: req.user.id, tanggal });
     data.jam_masuk = jam;
+    data.jam_masuk_target = batasJamMasuk;
     data.foto_masuk = `/uploads/absensi/${req.file.filename}`;
     data.lat_masuk = lat;
     data.lng_masuk = lng;
     data.status = status;
     await data.save();
 
-    res.json({ message: 'Absen masuk berhasil', data });
+    res.json({
+      message: 'Absen masuk berhasil',
+      data,
+      jam_masuk_target: batasJamMasuk,
+    });
   } catch (err) {
     res.status(500).json({ message: 'Terjadi kesalahan server', error: err.message });
   }
@@ -110,10 +144,12 @@ exports.statusHariIni = async (req, res) => {
     const data = await Absensi.findOne({
       where: { user_id: req.user.id, tanggal: hariIni() },
     });
+    const target = await jamMasukTarget(req.user.id, hariIni());
     res.json({
       sudah_absen_masuk: !!(data && data.jam_masuk),
       sudah_absen_pulang: !!(data && data.jam_pulang),
       data: data || null,
+      jam_masuk_target: target,
     });
   } catch (err) {
     res.status(500).json({ message: 'Terjadi kesalahan server', error: err.message });
@@ -135,7 +171,11 @@ exports.riwayatSaya = async (req, res) => {
 
     const data = await Absensi.findAll({
       where,
-      include: [{ model: User, attributes: ['id', 'nama', 'email', 'jabatan', 'foto_profil'] }],
+      include: [{
+        model: User,
+        attributes: ['id', 'nama', 'email', 'jabatan', 'foto_profil', 'location_id'],
+        include: [{ model: Location, attributes: ['id', 'nama'] }],
+      }],
       order: [['tanggal', 'DESC'], ['id', 'DESC']],
     });
     res.json(data);
@@ -161,7 +201,11 @@ exports.rekapAdmin = async (req, res) => {
 
     const data = await Absensi.findAll({
       where,
-      include: [{ model: User, attributes: ['id', 'nama', 'email', 'jabatan', 'foto_profil'] }],
+      include: [{
+        model: User,
+        attributes: ['id', 'nama', 'email', 'jabatan', 'foto_profil', 'location_id'],
+        include: [{ model: Location, attributes: ['id', 'nama'] }],
+      }],
       order: [['tanggal', 'DESC']],
     });
     res.json(data);

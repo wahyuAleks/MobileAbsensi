@@ -528,7 +528,7 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
                           };
                         }
 
-                        if (status.contains('terlambat')) {
+                        if (status.contains('terlambat') || status == 'telat') {
                           grouped[uid]!['terlambat'] = (grouped[uid]!['terlambat'] as int) + 1;
                           grouped[uid]!['hadir'] = (grouped[uid]!['hadir'] as int) + 1;
                         } else if (status.contains('hadir') || status.contains('tepat')) {

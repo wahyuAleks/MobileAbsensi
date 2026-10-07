@@ -1,7 +1,15 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../core/api_service.dart';
 import '../../core/constants.dart';
+import '../../core/session.dart';
 import 'laporan_sukses_screen.dart';
 
 class BuatLaporanScreen extends StatefulWidget {
@@ -24,6 +32,17 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
   final _uraianCtrl = TextEditingController();
   final _hasilCtrl = TextEditingController();
   final _rencanaEsokCtrl = TextEditingController();
+  final _imagePicker = ImagePicker();
+  File? _dokumentasiFile;
+  String? _dokumentasiPath;
+  DateTime? _waktuDokumentasi;
+  String? _namaKaryawan;
+  Position? _posisiDokumentasi;
+  double? _jarakLokasiGps;
+  bool _lokasiGpsTidakSesuai = false;
+
+  static const double _radiusCocokLokasiMeter = 500;
+  static const double _akurasiGpsMaksimalMeter = 100;
 
   String _jenisKegiatan = 'Penyemprotan Pestisida';
   final List<String> _listJenisKegiatan = [
@@ -62,6 +81,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
     _hasilCtrl.text = draft['hasil']?.toString() ?? '';
     _rencanaEsokCtrl.text = draft['rencana_esok']?.toString() ?? '';
     _jenisKegiatan = draft['jenis_kegiatan']?.toString() ?? _jenisKegiatan;
+    _dokumentasiPath = draft['lampiran']?.toString();
   }
 
   @override
@@ -99,6 +119,311 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
     if (picked != null) {
       setState(() => _tanggal = picked);
     }
+  }
+
+  Future<Position> _dapatkanPosisiGps() async {
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      throw StateError('Izin lokasi diperlukan untuk mencocokkan GPS foto.');
+    }
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      throw StateError('Aktifkan GPS perangkat untuk mengambil dokumentasi.');
+    }
+
+    final position = await Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.best,
+        timeLimit: Duration(seconds: 20),
+      ),
+    );
+    if (position.accuracy > _akurasiGpsMaksimalMeter) {
+      throw StateError(
+        'Sinyal GPS kurang akurat (±${position.accuracy.toStringAsFixed(0)} m). '
+        'Coba lagi di area terbuka.',
+      );
+    }
+    return position;
+  }
+
+  Future<double> _validasiLokasiGps(
+    String lokasi,
+    Position posisi,
+  ) async {
+    late final List<Location> hasilGeocoding;
+    try {
+      hasilGeocoding = await locationFromAddress(lokasi);
+    } catch (e) {
+      throw StateError(
+        'Lokasi/Area "$lokasi" tidak dapat diverifikasi melalui peta. '
+        'Periksa koneksi internet dan tulis lokasi yang lebih lengkap. ($e)',
+      );
+    }
+    if (hasilGeocoding.isEmpty) {
+      throw StateError(
+        'Lokasi/Area "$lokasi" tidak dapat dicocokkan dengan peta. '
+        'Periksa nama lokasi dan coba lagi.',
+      );
+    }
+
+    var jarakTerdekat = double.infinity;
+    for (final titik in hasilGeocoding) {
+      final jarak = Geolocator.distanceBetween(
+        posisi.latitude,
+        posisi.longitude,
+        titik.latitude,
+        titik.longitude,
+      );
+      if (jarak < jarakTerdekat) jarakTerdekat = jarak;
+    }
+    if (jarakTerdekat > _radiusCocokLokasiMeter) {
+      throw StateError(
+        'Lokasi kerja dan koordinat foto tidak sesuai '
+        '(jarak ${jarakTerdekat.toStringAsFixed(0)} m; batas '
+        '${_radiusCocokLokasiMeter.toStringAsFixed(0)} m dari lokasi laporan.',
+      );
+    }
+    return jarakTerdekat;
+  }
+
+  Future<void> _pilihDokumentasi() async {
+    try {
+      await _pastikanNamaKaryawan();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Nama karyawan tidak dapat dimuat: $e')),
+      );
+      return;
+    }
+    if (!mounted) return;
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Ambil foto'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Pilih dari galeri'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    try {
+      final image = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 2000,
+        maxHeight: 2000,
+      );
+      if (image == null || !mounted) return;
+      final lokasi = _lokasiCtrl.text.trim();
+      if (lokasi.isEmpty) {
+        throw StateError('Isi Lokasi / Area sebelum mengambil foto.');
+      }
+      final posisi = await _dapatkanPosisiGps();
+      final jarak = await _validasiLokasiGps(lokasi, posisi);
+      if (!mounted) return;
+      setState(() {
+        _dokumentasiFile = File(image.path);
+        _dokumentasiPath = null;
+        _waktuDokumentasi = DateTime.now();
+        _posisiDokumentasi = posisi;
+        _jarakLokasiGps = jarak;
+        _lokasiGpsTidakSesuai = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      if (e
+          .toString()
+          .contains('Lokasi kerja dan koordinat foto tidak sesuai')) {
+        setState(() {
+          _dokumentasiFile = null;
+          _dokumentasiPath = null;
+          _posisiDokumentasi = null;
+          _jarakLokasiGps = null;
+          _waktuDokumentasi = null;
+          _lokasiGpsTidakSesuai = true;
+        });
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst('Bad state: ', ''),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _pastikanNamaKaryawan() async {
+    if (_namaKaryawan?.isNotEmpty ?? false) return;
+    final namaSesi = (await Session.getNama())?.trim();
+    if (namaSesi != null && namaSesi.isNotEmpty) {
+      _namaKaryawan = namaSesi;
+      return;
+    }
+
+    final profil = await ApiService.getProfile();
+    final namaProfil = profil['nama']?.toString().trim();
+    if (namaProfil == null || namaProfil.isEmpty) {
+      throw StateError('Nama karyawan belum tersedia di profil.');
+    }
+    _namaKaryawan = namaProfil;
+    await Session.setNama(namaProfil);
+  }
+
+  Future<File?> _siapkanFotoBertag() async {
+    final foto = _dokumentasiFile;
+    if (_lokasiGpsTidakSesuai) {
+      throw StateError(
+        'Lokasi kerja dan koordinat foto tidak sesuai. '
+        'Pilih lokasi kerja yang benar lalu ambil ulang foto dokumentasi.',
+      );
+    }
+    if (foto == null) return null;
+
+    await _pastikanNamaKaryawan();
+    final lokasi = _lokasiCtrl.text.trim();
+    if (lokasi.isEmpty) {
+      throw StateError('Isi Lokasi / Area sebelum mengirim foto dokumentasi.');
+    }
+    final posisi = _posisiDokumentasi ?? await _dapatkanPosisiGps();
+    final jarak = await _validasiLokasiGps(lokasi, posisi);
+    _posisiDokumentasi = posisi;
+    _jarakLokasiGps = jarak;
+
+    final codec = await ui.instantiateImageCodec(await foto.readAsBytes());
+    final frame = await codec.getNextFrame();
+    final source = frame.image;
+    final scale =
+        (1600 / source.width).clamp(0.0, 1600 / source.height).clamp(0.0, 1.0);
+    final width = (source.width * scale).round().clamp(1, 1600).toInt();
+    final height = (source.height * scale).round().clamp(1, 1600).toInt();
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final target = Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble());
+    canvas.drawImageRect(
+      source,
+      Rect.fromLTWH(
+        0,
+        0,
+        source.width.toDouble(),
+        source.height.toDouble(),
+      ),
+      target,
+      Paint(),
+    );
+
+    final padding = width * 0.035;
+    final fontSize = (width * 0.027).clamp(18.0, 38.0).toDouble();
+    final waktu = DateFormat('dd/MM/yyyy HH:mm')
+        .format(_waktuDokumentasi ?? DateTime.now());
+    final paragraphBuilder = ui.ParagraphBuilder(
+      ui.ParagraphStyle(
+        textDirection: ui.TextDirection.ltr,
+        maxLines: 4,
+        ellipsis: '…',
+      ),
+    )
+      ..pushStyle(
+        ui.TextStyle(
+          color: const Color(0xFFFFFFFF),
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+        ),
+      )
+      ..addText(
+        'Nama: $_namaKaryawan\n'
+        'Lokasi: ${_posisiDokumentasi!.latitude.toStringAsFixed(6)}, '
+        '${_posisiDokumentasi!.longitude.toStringAsFixed(6)} - $lokasi\n'
+        'Waktu: $waktu',
+      );
+    final paragraph = paragraphBuilder.build()
+      ..layout(ui.ParagraphConstraints(
+        width: width.toDouble() - padding * 2,
+      ));
+    final panelHeight = paragraph.height + padding * 2;
+    final panelTop = height - panelHeight;
+    canvas.drawRect(
+      Rect.fromLTWH(0, panelTop, width.toDouble(), panelHeight),
+      Paint()..color = const Color(0xBB000000),
+    );
+    canvas.drawParagraph(
+      paragraph,
+      Offset(padding, panelTop + padding),
+    );
+
+    final picture = recorder.endRecording();
+    final taggedImage = await picture.toImage(width, height);
+    final png = await taggedImage.toByteData(format: ui.ImageByteFormat.png);
+    source.dispose();
+    taggedImage.dispose();
+    picture.dispose();
+    if (png == null) {
+      throw StateError('Foto dokumentasi gagal diproses.');
+    }
+
+    final decoded = img.decodeImage(
+      png.buffer.asUint8List(png.offsetInBytes, png.lengthInBytes),
+    );
+    if (decoded == null) {
+      throw StateError('Foto dokumentasi gagal dibaca setelah diberi tag.');
+    }
+    final jpg = img.encodeJpg(decoded, quality: 85);
+    final tempPath =
+        '${Directory.systemTemp.path}${Platform.pathSeparator}laporan-${DateTime.now().microsecondsSinceEpoch}.jpg';
+    return File(tempPath).writeAsBytes(jpg, flush: true);
+  }
+
+  Widget _buildFotoDenganTag() {
+    final waktu = DateFormat('dd/MM/yyyy HH:mm')
+        .format(_waktuDokumentasi ?? DateTime.now());
+    return Stack(
+      children: [
+        Image.file(
+          _dokumentasiFile!,
+          height: 190,
+          width: double.infinity,
+          fit: BoxFit.cover,
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            color: Colors.black.withValues(alpha: 0.68),
+            child: Text(
+              'Nama: ${_namaKaryawan ?? 'Karyawan'}\n'
+              'Lokasi: ${_posisiDokumentasi == null ? 'GPS belum divalidasi' : '${_posisiDokumentasi!.latitude.toStringAsFixed(6)}, ${_posisiDokumentasi!.longitude.toStringAsFixed(6)}'}'
+              '${_posisiDokumentasi == null ? '' : ' - ${_lokasiCtrl.text.trim()}'}\n'
+              'Waktu: $waktu',
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   String _formatTanggalIndo(DateTime dt, {bool withDay = false}) {
@@ -140,12 +465,20 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
 
     setState(() => _submitting = true);
     final messenger = ScaffoldMessenger.of(context);
+    File? fotoBertag;
 
     try {
+      if (_lokasiGpsTidakSesuai) {
+        throw StateError(
+          'Lokasi kerja dan koordinat foto tidak sesuai. '
+          'Ambil ulang foto dokumentasi di lokasi kerja yang dipilih.',
+        );
+      }
       final tglFormatted = DateFormat('yyyy-MM-dd').format(_tanggal);
       final displayTanggal = _formatTanggalIndo(_tanggal);
       final displayWaktu = DateFormat('HH.mm').format(DateTime.now());
       final data = _dataLaporan(tglFormatted);
+      fotoBertag = await _siapkanFotoBertag();
 
       final draftId = _draftId;
       if (draftId != null) {
@@ -161,6 +494,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
           uraianPekerjaan: data['uraian_pekerjaan'],
           hasil: data['hasil'],
           rencanaEsok: data['rencana_esok'],
+          lampiran: fotoBertag ?? _dokumentasiFile,
         );
       } else {
         await ApiService.submitLaporan(
@@ -178,6 +512,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
           rencanaEsok: data['rencana_esok']!.isNotEmpty
               ? data['rencana_esok']
               : 'Melanjutkan operasional sesuai rencana kerja tim.',
+          lampiran: fotoBertag ?? _dokumentasiFile,
         );
       }
 
@@ -206,6 +541,8 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
           ),
         );
       }
+    } finally {
+      await _hapusFotoBertagSementara(fotoBertag);
     }
   }
 
@@ -228,12 +565,20 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
   Future<void> _simpanDraft() async {
     setState(() => _submitting = true);
     final messenger = ScaffoldMessenger.of(context);
+    File? fotoBertag;
     try {
+      if (_lokasiGpsTidakSesuai) {
+        throw StateError(
+          'Lokasi kerja dan koordinat foto tidak sesuai. '
+          'Ambil ulang foto dokumentasi di lokasi kerja yang dipilih.',
+        );
+      }
       final tanggal = DateFormat('yyyy-MM-dd').format(_tanggal);
       final data = _dataLaporan(tanggal);
       final judul =
           data['judul']!.isEmpty ? 'Draft tanpa judul' : data['judul']!;
       final id = _draftId;
+      fotoBertag = await _siapkanFotoBertag();
 
       if (id == null) {
         await ApiService.submitLaporan(
@@ -247,6 +592,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
           uraianPekerjaan: data['uraian_pekerjaan'],
           hasil: data['hasil'],
           rencanaEsok: data['rencana_esok'],
+          lampiran: fotoBertag ?? _dokumentasiFile,
           status: 'Draft',
         );
       } else {
@@ -262,6 +608,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
           uraianPekerjaan: data['uraian_pekerjaan'],
           hasil: data['hasil'],
           rencanaEsok: data['rencana_esok'],
+          lampiran: fotoBertag ?? _dokumentasiFile,
         );
       }
 
@@ -283,6 +630,17 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
           ),
         );
       }
+    } finally {
+      await _hapusFotoBertagSementara(fotoBertag);
+    }
+  }
+
+  Future<void> _hapusFotoBertagSementara(File? foto) async {
+    if (foto == null || foto.path == _dokumentasiFile?.path) return;
+    try {
+      if (await foto.exists()) await foto.delete();
+    } on FileSystemException catch (e) {
+      debugPrint('Gagal menghapus file foto sementara: $e');
     }
   }
 
@@ -513,6 +871,11 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
                           const SizedBox(height: 6),
                           TextFormField(
                             controller: _lokasiCtrl,
+                            onChanged: _dokumentasiFile == null
+                                ? null
+                                : (_) => setState(() {
+                                      _jarakLokasiGps = null;
+                                    }),
                             decoration: InputDecoration(
                               hintText: 'Contoh: Sawah Blok A — Karawang',
                               filled: true,
@@ -599,6 +962,105 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
                                 ),
                               ),
                             ],
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: const Color(0xFFE5E7EB),
+                                width: 1.2,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'DOKUMENTASI KEGIATAN LAPANGAN',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF6B7280),
+                                    letterSpacing: 0.6,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                const Text(
+                                  'Tambahkan foto kegiatan sebagai dokumentasi (opsional, maksimal 5 MB).',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                if (_dokumentasiFile != null ||
+                                    (_dokumentasiPath?.isNotEmpty ??
+                                        false)) ...[
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: _dokumentasiFile != null
+                                        ? _buildFotoDenganTag()
+                                        : Image.network(
+                                            AppConstants.getImageUrl(
+                                                _dokumentasiPath)!,
+                                            height: 190,
+                                            width: double.infinity,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) =>
+                                                Container(
+                                              height: 120,
+                                              alignment: Alignment.center,
+                                              color: const Color(0xFFF3F4F6),
+                                              child: const Text(
+                                                'Foto dokumentasi tidak dapat dimuat',
+                                              ),
+                                            ),
+                                          ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                ],
+                                if (_dokumentasiFile != null &&
+                                    _jarakLokasiGps != null) ...[
+                                  Text(
+                                    'GPS cocok dengan lokasi laporan '
+                                    '(jarak ${_jarakLokasiGps!.toStringAsFixed(0)} m).',
+                                    style: const TextStyle(
+                                      color: Color(0xFF15803D),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
+                                if (_lokasiGpsTidakSesuai) ...[
+                                  const Text(
+                                    'Lokasi kerja dan koordinat foto tidak sesuai. '
+                                    'Ambil ulang foto setelah memastikan lokasi kerja benar.',
+                                    style: TextStyle(
+                                      color: Color(0xFFDC2626),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
+                                OutlinedButton.icon(
+                                  onPressed:
+                                      _submitting ? null : _pilihDokumentasi,
+                                  icon: const Icon(Icons.add_a_photo_outlined),
+                                  label: Text(
+                                    _dokumentasiFile != null ||
+                                            (_dokumentasiPath?.isNotEmpty ??
+                                                false)
+                                        ? 'Ganti foto dokumentasi'
+                                        : 'Tambah foto dokumentasi',
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),

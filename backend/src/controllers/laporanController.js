@@ -105,6 +105,7 @@ exports.updateDraft = async (req, res) => {
       uraian_pekerjaan: uraian_pekerjaan ?? body,
       hasil: hasil ?? laporan.hasil,
       rencana_esok: rencana_esok ?? laporan.rencana_esok,
+      lampiran: req.file ? `/uploads/laporan/${req.file.filename}` : laporan.lampiran,
     });
 
     res.json({ message: 'Draft laporan berhasil diperbarui', data: laporan });
@@ -159,12 +160,67 @@ exports.kirimDraft = async (req, res) => {
       uraian_pekerjaan: uraian_pekerjaan ?? body,
       hasil: hasil ?? laporan.hasil,
       rencana_esok: rencana_esok ?? laporan.rencana_esok,
+      lampiran: req.file ? `/uploads/laporan/${req.file.filename}` : laporan.lampiran,
       status: 'Terkirim',
     });
 
     res.json({ message: 'Laporan berhasil dikirim', data: laporan });
   } catch (err) {
     res.status(500).json({ message: 'Terjadi kesalahan server', error: err.message });
+  }
+};
+
+exports.editLaporanAdmin = async (req, res) => {
+  try {
+    const laporan = await Laporan.findByPk(req.params.id);
+    if (!laporan) {
+      return res.status(404).json({ message: 'Laporan tidak ditemukan' });
+    }
+
+    const fields = [
+      'tanggal',
+      'judul',
+      'isi_laporan',
+      'jenis_kegiatan',
+      'lokasi',
+      'unit_drone',
+      'luas_area',
+      'uraian_pekerjaan',
+      'hasil',
+      'rencana_esok',
+    ];
+    const updates = {};
+    for (const field of fields) {
+      if (typeof req.body[field] === 'string') {
+        updates[field] = req.body[field].trim();
+      }
+    }
+
+    const judul = updates.judul ?? laporan.judul;
+    const uraian = updates.uraian_pekerjaan ??
+      updates.isi_laporan ??
+      laporan.uraian_pekerjaan ??
+      laporan.isi_laporan;
+    if (!judul || !uraian) {
+      return res.status(400).json({
+        message: 'Judul dan uraian pekerjaan wajib diisi',
+      });
+    }
+
+    updates.judul = judul;
+    updates.isi_laporan = updates.isi_laporan ?? uraian;
+    updates.uraian_pekerjaan = uraian;
+    if (req.file) {
+      updates.lampiran = `/uploads/laporan/${req.file.filename}`;
+    }
+
+    await laporan.update(updates);
+    res.json({ message: 'Laporan berhasil diperbarui admin', data: laporan });
+  } catch (err) {
+    res.status(500).json({
+      message: 'Gagal memperbarui laporan',
+      error: err.message,
+    });
   }
 };
 
