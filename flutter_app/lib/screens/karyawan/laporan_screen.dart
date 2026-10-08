@@ -162,6 +162,7 @@ class _LaporanScreenState extends State<LaporanScreen> {
               'Penyemprotan 100% selesai. Tidak ada kendala signifikan.',
           'rencana_esok': item['rencana_esok'] ??
               'Penyemprotan Blok B — 5 Ha dengan drone DA-002.',
+          'lampiran': item['lampiran'],
         });
       }
 

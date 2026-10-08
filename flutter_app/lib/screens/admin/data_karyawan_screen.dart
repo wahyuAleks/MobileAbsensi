@@ -112,13 +112,17 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Hapus Karyawan', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Hapus Karyawan',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         content: const Text('Yakin ingin menghapus data karyawan ini?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Batal')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Hapus', style: TextStyle(color: Color(0xFFDC2626))),
+            child:
+                const Text('Hapus', style: TextStyle(color: Color(0xFFDC2626))),
           ),
         ],
       ),
@@ -129,7 +133,9 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
       await ApiService.hapusKaryawan(id);
       _muat();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
@@ -143,7 +149,8 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
   void _bukaFormEdit(Map<String, dynamic> karyawan) {
     showDialog(
       context: context,
-      builder: (context) => _FormKaryawanDialog(karyawan: karyawan, onSukses: _muat),
+      builder: (context) =>
+          _FormKaryawanDialog(karyawan: karyawan, onSukses: _muat),
     );
   }
 
@@ -171,7 +178,8 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
             const SizedBox(height: 16),
             const Divider(height: 1),
             ListTile(
-              leading: const Icon(Icons.person_add_outlined, color: Color(0xFF10B981)),
+              leading: const Icon(Icons.person_add_outlined,
+                  color: Color(0xFF10B981)),
               title: const Text('Tambah Karyawan Baru'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -179,7 +187,8 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.edit_outlined, color: Color(0xFF4F5BA8)),
+              leading:
+                  const Icon(Icons.edit_outlined, color: Color(0xFF4F5BA8)),
               title: const Text('Edit Data Karyawan'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -187,8 +196,10 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline, color: Color(0xFFDC2626)),
-              title: const Text('Hapus Karyawan', style: TextStyle(color: Color(0xFFDC2626))),
+              leading:
+                  const Icon(Icons.delete_outline, color: Color(0xFFDC2626)),
+              title: const Text('Hapus Karyawan',
+                  style: TextStyle(color: Color(0xFFDC2626))),
               onTap: () {
                 Navigator.pop(ctx);
                 _hapus(k['id']);
@@ -261,7 +272,8 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -327,7 +339,8 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
                               width: 36,
                               height: 36,
                               decoration: const BoxDecoration(
-                                color: Color(0xFF488286), // Teal SA persis gambar
+                                color:
+                                    Color(0xFF488286), // Teal SA persis gambar
                                 shape: BoxShape.circle,
                               ),
                               alignment: Alignment.center,
@@ -362,13 +375,17 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                   child: TextField(
                     controller: _searchCtrl,
-                    onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
-                    style: const TextStyle(fontSize: 14, color: Color(0xFF111827)),
+                    onChanged: (v) =>
+                        setState(() => _query = v.trim().toLowerCase()),
+                    style:
+                        const TextStyle(fontSize: 14, color: Color(0xFF111827)),
                     decoration: const InputDecoration(
-                      icon: Icon(Icons.search_rounded, color: Color(0xFF9CA3AF), size: 22),
+                      icon: Icon(Icons.search_rounded,
+                          color: Color(0xFF9CA3AF), size: 22),
                       hintText: 'Cari nama / NIP ...',
                       hintStyle: TextStyle(
                         color: Color(0xFF9CA3AF),
@@ -394,13 +411,16 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
                         final k = Map<String, dynamic>.from(entry.value);
                         final id = k['id'] ?? (i + 1);
                         final nip = 'DA-2024-${id.toString().padLeft(3, '0')}';
-                        final color = i.isEven ? const Color(0xFF2F6B64) : const Color(0xFF385C83);
+                        final color = i.isEven
+                            ? const Color(0xFF2F6B64)
+                            : const Color(0xFF385C83);
                         return {
                           'id': id,
                           'nip': nip,
                           'nama': k['nama'] ?? 'Karyawan',
                           'email': k['email'] ?? '-',
                           'jabatan': k['jabatan'] ?? 'Staff',
+                          'location_id': k['location_id'],
                           'color': color,
                         };
                       }).toList();
@@ -415,7 +435,9 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
                       final nama = (k['nama'] ?? '').toString().toLowerCase();
                       final nip = (k['nip'] ?? '').toString().toLowerCase();
                       final email = (k['email'] ?? '').toString().toLowerCase();
-                      return nama.contains(_query) || nip.contains(_query) || email.contains(_query);
+                      return nama.contains(_query) ||
+                          nip.contains(_query) ||
+                          email.contains(_query);
                     }).toList();
 
                     return Container(
@@ -474,12 +496,15 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
                           if (filtered.isEmpty)
                             Center(
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 24),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 24),
                                 child: Column(
                                   children: [
                                     const Text(
                                       'Karyawan tidak ditemukan',
-                                      style: TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+                                      style: TextStyle(
+                                          color: Color(0xFF6B7280),
+                                          fontSize: 13),
                                     ),
                                     const SizedBox(height: 12),
                                     TextButton.icon(
@@ -496,13 +521,17 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               itemCount: filtered.length,
-                              separatorBuilder: (_, __) => const SizedBox(height: 20),
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 20),
                               itemBuilder: (context, i) {
                                 final k = filtered[i];
                                 final rawNip = k['nip'] as String;
                                 final rawNama = (k['nama'] as String);
                                 final rawEmail = (k['email'] as String);
-                                final avatarColor = (k['color'] as Color?) ?? (i.isEven ? const Color(0xFF2F6B64) : const Color(0xFF385C83));
+                                final avatarColor = (k['color'] as Color?) ??
+                                    (i.isEven
+                                        ? const Color(0xFF2F6B64)
+                                        : const Color(0xFF385C83));
                                 final initials = _getInitials(rawNama);
 
                                 final displayNip = _formatNip(rawNip);
@@ -513,9 +542,11 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
                                   onTap: () => _bukaMenuAksi(k),
                                   borderRadius: BorderRadius.circular(8),
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 2),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 2),
                                     child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
                                       children: [
                                         // Kolom NIP
                                         Expanded(
@@ -535,7 +566,8 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
                                         Expanded(
                                           flex: 3,
                                           child: Row(
-                                            crossAxisAlignment: CrossAxisAlignment.center,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
                                             children: [
                                               CircleAvatar(
                                                 radius: 17,
@@ -628,21 +660,68 @@ class _FormKaryawanDialogState extends State<_FormKaryawanDialog> {
   late final TextEditingController _jabatanCtrl;
   late final TextEditingController _hpCtrl;
   bool _menyimpan = false;
+  bool _memuatLokasi = true;
+  bool _gagalMuatLokasi = false;
+  List<Map<String, dynamic>> _lokasi = [];
+  int? _locationId;
 
   bool get _modeEdit => widget.karyawan != null;
 
   @override
+  void dispose() {
+    _namaCtrl.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    _jabatanCtrl.dispose();
+    _hpCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
-    _namaCtrl = TextEditingController(text: widget.karyawan?['nama']?.toString().replaceAll('\n', ' '));
-    _emailCtrl = TextEditingController(text: widget.karyawan?['email']?.toString().replaceAll('\n', ''));
+    _namaCtrl = TextEditingController(
+        text: widget.karyawan?['nama']?.toString().replaceAll('\n', ' '));
+    _emailCtrl = TextEditingController(
+        text: widget.karyawan?['email']?.toString().replaceAll('\n', ''));
     _passwordCtrl = TextEditingController();
     _jabatanCtrl = TextEditingController(text: widget.karyawan?['jabatan']);
     _hpCtrl = TextEditingController(text: widget.karyawan?['no_hp']);
+    final rawLocationId = widget.karyawan?['location_id'];
+    _locationId =
+        rawLocationId == null ? null : int.tryParse(rawLocationId.toString());
+    _muatLokasi();
+  }
+
+  Future<void> _muatLokasi() async {
+    try {
+      final result = await ApiService.daftarLokasi();
+      if (!mounted) return;
+      setState(() {
+        _lokasi = result.map((e) => Map<String, dynamic>.from(e)).toList();
+        _memuatLokasi = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _memuatLokasi = false;
+        _gagalMuatLokasi = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal memuat daftar lokasi: $e')),
+      );
+    }
   }
 
   Future<void> _simpan() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_gagalMuatLokasi) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Lokasi kerja belum bisa dimuat. Coba lagi nanti.')),
+      );
+      return;
+    }
     setState(() => _menyimpan = true);
     try {
       if (_modeEdit) {
@@ -650,6 +729,7 @@ class _FormKaryawanDialogState extends State<_FormKaryawanDialog> {
           'nama': _namaCtrl.text.trim(),
           'jabatan': _jabatanCtrl.text.trim(),
           'no_hp': _hpCtrl.text.trim(),
+          'location_id': _locationId,
         });
       } else {
         await ApiService.tambahKaryawan({
@@ -658,13 +738,15 @@ class _FormKaryawanDialogState extends State<_FormKaryawanDialog> {
           'password': _passwordCtrl.text,
           'jabatan': _jabatanCtrl.text.trim(),
           'no_hp': _hpCtrl.text.trim(),
+          'location_id': _locationId,
         });
       }
       if (!mounted) return;
       Navigator.pop(context);
       widget.onSukses();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
       if (mounted) setState(() => _menyimpan = false);
     }
@@ -674,7 +756,8 @@ class _FormKaryawanDialogState extends State<_FormKaryawanDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text(_modeEdit ? 'Edit Karyawan' : 'Tambah Karyawan', style: const TextStyle(fontWeight: FontWeight.bold)),
+      title: Text(_modeEdit ? 'Edit Karyawan' : 'Tambah Karyawan',
+          style: const TextStyle(fontWeight: FontWeight.bold)),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -684,37 +767,81 @@ class _FormKaryawanDialogState extends State<_FormKaryawanDialog> {
               TextFormField(
                 controller: _namaCtrl,
                 decoration: const InputDecoration(labelText: 'Nama'),
-                validator: (v) => (v == null || v.isEmpty) ? 'Wajib diisi' : null,
+                validator: (v) =>
+                    (v == null || v.isEmpty) ? 'Wajib diisi' : null,
               ),
               if (!_modeEdit) ...[
                 TextFormField(
                   controller: _emailCtrl,
                   decoration: const InputDecoration(labelText: 'Email'),
-                  validator: (v) => (v == null || v.isEmpty) ? 'Wajib diisi' : null,
+                  validator: (v) =>
+                      (v == null || v.isEmpty) ? 'Wajib diisi' : null,
                 ),
                 TextFormField(
                   controller: _passwordCtrl,
                   obscureText: true,
                   decoration: const InputDecoration(labelText: 'Password'),
-                  validator: (v) => (v == null || v.isEmpty) ? 'Wajib diisi' : null,
+                  validator: (v) =>
+                      (v == null || v.isEmpty) ? 'Wajib diisi' : null,
                 ),
               ],
-              TextFormField(controller: _jabatanCtrl, decoration: const InputDecoration(labelText: 'Jabatan')),
-              TextFormField(controller: _hpCtrl, decoration: const InputDecoration(labelText: 'No. HP')),
+              TextFormField(
+                  controller: _jabatanCtrl,
+                  decoration: const InputDecoration(labelText: 'Jabatan')),
+              TextFormField(
+                  controller: _hpCtrl,
+                  decoration: const InputDecoration(labelText: 'No. HP')),
+              const SizedBox(height: 8),
+              if (_memuatLokasi)
+                const LinearProgressIndicator()
+              else if (_gagalMuatLokasi)
+                const InputDecorator(
+                  decoration: InputDecoration(labelText: 'Lokasi kerja'),
+                  child: Text('Daftar lokasi gagal dimuat'),
+                )
+              else
+                DropdownButtonFormField<int?>(
+                  initialValue: _locationId,
+                  decoration: const InputDecoration(labelText: 'Lokasi kerja'),
+                  items: [
+                    const DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text('Pilih lokasi kerja'),
+                    ),
+                    ..._lokasi.map((lokasi) {
+                      final id = int.parse(lokasi['id'].toString());
+                      return DropdownMenuItem<int?>(
+                        value: id,
+                        child: Text(lokasi['nama'].toString()),
+                      );
+                    }),
+                  ],
+                  onChanged: (value) => setState(() => _locationId = value),
+                  validator: (value) => _lokasi.isNotEmpty && value == null
+                      ? 'Lokasi kerja wajib dipilih'
+                      : null,
+                ),
             ],
           ),
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal')),
         ElevatedButton(
           onPressed: _menyimpan ? null : _simpan,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF4F5BA8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
           child: _menyimpan
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white))
               : const Text('Simpan', style: TextStyle(color: Colors.white)),
         ),
       ],

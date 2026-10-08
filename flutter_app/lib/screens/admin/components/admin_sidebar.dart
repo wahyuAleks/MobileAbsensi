@@ -6,7 +6,7 @@ import '../../login_screen.dart';
 /// Dibuat persis 100% sesuai screenshot mockup:
 /// - Background ungu-indigo solid (#4C58A5) dengan sudut kanan melengkung
 /// - Header: Icon Gear settings + 'Absensiku' & 'Admin Panel'
-/// - Menu Items (6 menu):
+/// - Menu navigasi admin:
 ///   1. Dashboard
 ///   2. Data Karyawan
 ///   3. Monitoring Absensi
@@ -96,6 +96,7 @@ class _AdminDrawerState extends State<AdminDrawer> {
       {'title': 'Rekap Absensi', 'icon': Icons.calendar_month_rounded},
       {'title': 'Persetujuan cuti', 'icon': Icons.assignment_rounded},
       {'title': 'Rekap laporan', 'icon': Icons.description_rounded},
+      {'title': 'Lokasi & Jam Masuk', 'icon': Icons.location_on_rounded},
     ];
 
     return Drawer(

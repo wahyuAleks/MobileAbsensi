@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const Location = require('../models/Location');
 
 // LIHAT DAFTAR KARYAWAN
 exports.daftarKaryawan = async (req, res) => {
@@ -7,6 +8,7 @@ exports.daftarKaryawan = async (req, res) => {
     const data = await User.findAll({
       where: { role: 'karyawan' },
       attributes: { exclude: ['password'] },
+      include: [{ model: Location, attributes: ['id', 'nama'] }],
       order: [['nama', 'ASC']],
     });
     res.json(data);
@@ -17,7 +19,10 @@ exports.daftarKaryawan = async (req, res) => {
 
 exports.detailKaryawan = async (req, res) => {
   try {
-    const data = await User.findByPk(req.params.id, { attributes: { exclude: ['password'] } });
+    const data = await User.findByPk(req.params.id, {
+      attributes: { exclude: ['password'] },
+      include: [{ model: Location, attributes: ['id', 'nama'] }],
+    });
     if (!data) return res.status(404).json({ message: 'Karyawan tidak ditemukan' });
     res.json(data);
   } catch (err) {
@@ -28,7 +33,7 @@ exports.detailKaryawan = async (req, res) => {
 // CRUD DATA KARYAWAN - create
 exports.tambahKaryawan = async (req, res) => {
   try {
-    const { nama, email, password, jabatan, no_hp } = req.body;
+    const { nama, email, password, jabatan, no_hp, location_id: locationId } = req.body;
     if (!nama || !email || !password) {
       return res.status(400).json({ message: 'Nama, email, dan password wajib diisi' });
     }
@@ -36,9 +41,20 @@ exports.tambahKaryawan = async (req, res) => {
     const existing = await User.findOne({ where: { email } });
     if (existing) return res.status(400).json({ message: 'Email sudah terdaftar' });
 
+    if (locationId != null && locationId !== '') {
+      const location = await Location.findByPk(locationId);
+      if (!location) return res.status(400).json({ message: 'Lokasi tidak ditemukan' });
+    }
+
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({
-      nama, email, password: hash, jabatan, no_hp, role: 'karyawan',
+      nama,
+      email,
+      password: hash,
+      jabatan,
+      no_hp,
+      location_id: locationId || null,
+      role: 'karyawan',
     });
 
     const { password: _pw, ...userTanpaPassword } = user.toJSON();
@@ -54,7 +70,7 @@ exports.updateKaryawan = async (req, res) => {
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: 'Karyawan tidak ditemukan' });
 
-    const { nama, email, password, jabatan, no_hp, is_active } = req.body;
+    const { nama, email, password, jabatan, no_hp, is_active, location_id: locationId } = req.body;
     if (nama) user.nama = nama;
     if (email && email !== user.email) {
       const existing = await User.findOne({ where: { email } });
@@ -68,6 +84,13 @@ exports.updateKaryawan = async (req, res) => {
     }
     if (jabatan) user.jabatan = jabatan;
     if (no_hp !== undefined) user.no_hp = no_hp;
+    if (locationId !== undefined) {
+      if (locationId !== null && locationId !== '') {
+        const location = await Location.findByPk(locationId);
+        if (!location) return res.status(400).json({ message: 'Lokasi tidak ditemukan' });
+      }
+      user.location_id = locationId || null;
+    }
     if (typeof is_active === 'boolean') user.is_active = is_active;
 
     await user.save();
@@ -97,4 +120,3 @@ exports.hapusKaryawan = async (req, res) => {
     res.status(500).json({ message: 'Terjadi kesalahan server', error: err.message });
   }
 };
-

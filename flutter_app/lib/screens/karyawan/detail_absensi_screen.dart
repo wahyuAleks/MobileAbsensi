@@ -6,10 +6,7 @@ import '../../core/constants.dart';
 /// Menampilkan informasi absensi lengkap:
 /// 1. Profil Karyawan (Nama, Jabatan, Email, Foto Profil)
 /// 2. Foto Selfie Absen Masuk & Pulang (bisa diklik untuk perbesar)
-/// 3. Status Ketepatan Waktu dengan patokan jam 08:00 WIB:
-///    - Sebelum 08:00 -> "Datang Lebih Awal"
-///    - Pas 08:00 -> "Tepat Waktu"
-///    - Lewat 08:00 -> "Terlambat (X menit/jam)"
+/// 3. Status ketepatan waktu mengikuti target jam masuk lokasi pada tanggal absensi.
 /// 4. Waktu Jam Masuk, Jam Pulang, dan Total Jam Kerja
 /// 5. Validasi Lokasi GPS & Tombol Buka di Google Maps
 class DetailAbsensiScreen extends StatelessWidget {
@@ -22,8 +19,12 @@ class DetailAbsensiScreen extends StatelessWidget {
     this.onBack,
   });
 
-  /// Menghitung status ketepatan waktu dengan patokan jam masuk 08:00 WIB
-  Map<String, dynamic> _hitungStatusKetepatanWaktu(String jamMasukRaw, String rawStatus) {
+  /// Menghitung status ketepatan waktu dari target yang tersimpan pada absensi.
+  Map<String, dynamic> _hitungStatusKetepatanWaktu(
+    String jamMasukRaw,
+    String rawStatus,
+    String targetRaw,
+  ) {
     if (rawStatus.toLowerCase().contains('cuti') || rawStatus.toLowerCase().contains('izin')) {
       return {
         'status': 'Izin Cuti',
@@ -52,10 +53,14 @@ class DetailAbsensiScreen extends StatelessWidget {
       final s = parts.length >= 3 ? (int.tryParse(parts[2]) ?? 0) : 0;
 
       final totalDetik = h * 3600 + m * 60 + s;
-      const targetDetik = 8 * 3600; // 08:00:00 WIB
+      final targetParts = targetRaw.split(':');
+      final targetJam = int.tryParse(targetParts[0]) ?? 8;
+      final targetMenit = int.tryParse(targetParts.length > 1 ? targetParts[1] : '0') ?? 0;
+      final targetDetik = targetJam * 3600 + targetMenit * 60;
+      final targetLabel = '${targetJam.toString().padLeft(2, '0')}:${targetMenit.toString().padLeft(2, '0')} WIB';
 
       if (totalDetik < targetDetik) {
-        // Sebelum jam 08.00 -> Datang Lebih Awal
+        // Sebelum batas lokasi -> Datang Lebih Awal
         final selisihDetik = targetDetik - totalDetik;
         final selisihMenit = (selisihDetik / 60).floor();
         String durasiAwal;
@@ -73,20 +78,20 @@ class DetailAbsensiScreen extends StatelessWidget {
           'durasi': durasiAwal,
           'badgeColor': const Color(0xFF16A34A),
           'bgColor': const Color(0xFFDCFCE7),
-          'keterangan': 'Datang lebih awal $durasiAwal sebelum batas jam 08:00 WIB.',
+          'keterangan': 'Datang lebih awal $durasiAwal sebelum batas jam $targetLabel.',
         };
       } else if (totalDetik == targetDetik) {
-        // Pas jam 08.00:00 -> Tepat Waktu
+        // Tepat pada batas lokasi -> Tepat Waktu
         return {
           'status': 'Tepat Waktu',
           'isLate': false,
           'durasi': '0 menit',
           'badgeColor': const Color(0xFF16A34A),
           'bgColor': const Color(0xFFDCFCE7),
-          'keterangan': 'Hadir tepat waktu pada batas jam masuk 08:00 WIB.',
+          'keterangan': 'Hadir tepat waktu pada batas jam masuk $targetLabel.',
         };
       } else {
-        // Lewat jam 08.00:00 -> Terlambat
+        // Lewat batas lokasi -> Terlambat
         final selisihDetik = totalDetik - targetDetik;
         final selisihMenit = (selisihDetik / 60).ceil();
         String durasiTelat;
@@ -104,7 +109,7 @@ class DetailAbsensiScreen extends StatelessWidget {
           'durasi': durasiTelat,
           'badgeColor': const Color(0xFFEA580C),
           'bgColor': const Color(0xFFFFEDD5),
-          'keterangan': 'Terlambat $durasiTelat dari batas jam masuk kantor 08:00 WIB.',
+          'keterangan': 'Terlambat $durasiTelat dari batas jam masuk $targetLabel.',
         };
       }
     }
@@ -231,8 +236,9 @@ class DetailAbsensiScreen extends StatelessWidget {
     final rawStatus = (item['status'] ?? 'Hadir').toString();
     final jamMasukRaw = (item['jam_masuk'] ?? '—').toString();
     final jamPulangRaw = (item['jam_pulang'] ?? '—').toString();
+    final targetMasukRaw = (item['jam_masuk_target'] ?? '08:00:00').toString();
 
-    final statusInfo = _hitungStatusKetepatanWaktu(jamMasukRaw, rawStatus);
+    final statusInfo = _hitungStatusKetepatanWaktu(jamMasukRaw, rawStatus, targetMasukRaw);
     final String statusDisplay = statusInfo['status'] as String;
     final Color statusColor = statusInfo['badgeColor'] as Color;
     final Color statusBg = statusInfo['bgColor'] as Color;
@@ -431,7 +437,7 @@ class DetailAbsensiScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
 
-                    // KARTU 2: BANNER STATUS KETEPATAN WAKTU (PATOKAN 08:00 WIB)
+                    // KARTU 2: STATUS KETEPATAN WAKTU SESUAI TARGET LOKASI
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(14),
@@ -577,7 +583,10 @@ class DetailAbsensiScreen extends StatelessWidget {
                           _buildTableRow('Jam Masuk', jamMasuk),
                           const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
 
-                          _buildTableRow('Target Masuk Kantor', '08:00 WIB'),
+                          _buildTableRow(
+                            'Target Masuk Kantor',
+                            '${targetMasukRaw.substring(0, targetMasukRaw.length >= 5 ? 5 : targetMasukRaw.length)} WIB',
+                          ),
                           const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
 
                           _buildTableRow(

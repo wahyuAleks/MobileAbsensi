@@ -7,6 +7,7 @@ import 'rekap_absensi_screen.dart';
 import 'persetujuan_cuti_screen.dart';
 import 'rekap_laporan_screen.dart';
 import 'profile_admin_screen.dart';
+import 'lokasi_jam_masuk_screen.dart';
 import 'components/admin_sidebar.dart';
 import 'components/notifikasi_sheet.dart';
 
@@ -30,6 +31,7 @@ class _DashboardAdminState extends State<DashboardAdmin> {
     'Rekap Absensi',
     'Persetujuan cuti',
     'Rekap laporan',
+    'Lokasi & Jam Masuk',
     'Profil Admin',
   ];
 
@@ -69,7 +71,7 @@ class _DashboardAdminState extends State<DashboardAdmin> {
         onBukaKaryawan: () => _pindahTab(1),
         onBukaRekapAbsensi: () => _pindahTab(2),
         onBukaPersetujuanCuti: () => _pindahTab(4),
-        onBukaProfil: () => _pindahTab(6),
+        onBukaProfil: () => _pindahTab(7),
       ),
       // 1. Data Karyawan
       DataKaryawanScreen(
@@ -78,7 +80,7 @@ class _DashboardAdminState extends State<DashboardAdmin> {
         onOpenNotifikasi: _bukaNotifikasi,
         onBukaRekapAbsensi: () => _pindahTab(2),
         onBukaPersetujuanCuti: () => _pindahTab(4),
-        onBukaProfil: () => _pindahTab(6),
+        onBukaProfil: () => _pindahTab(7),
       ),
       // 2. Monitoring Absensi
       MonitoringAbsensiScreen(
@@ -87,7 +89,7 @@ class _DashboardAdminState extends State<DashboardAdmin> {
         onOpenNotifikasi: _bukaNotifikasi,
         onBukaKaryawan: () => _pindahTab(1),
         onBukaPersetujuanCuti: () => _pindahTab(4),
-        onBukaProfil: () => _pindahTab(6),
+        onBukaProfil: () => _pindahTab(7),
       ),
       // 3. Rekap Absensi
       RekapAbsensiScreen(
@@ -96,14 +98,14 @@ class _DashboardAdminState extends State<DashboardAdmin> {
         onOpenNotifikasi: _bukaNotifikasi,
         onBukaKaryawan: () => _pindahTab(1),
         onBukaPersetujuanCuti: () => _pindahTab(4),
-        onBukaProfil: () => _pindahTab(6),
+        onBukaProfil: () => _pindahTab(7),
       ),
       // 4. Persetujuan Cuti
       PersetujuanCutiScreen(
         showAppBar: false,
         onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
         onOpenNotifikasi: _bukaNotifikasi,
-        onBukaProfil: () => _pindahTab(6),
+        onBukaProfil: () => _pindahTab(7),
         onBukaRekapAbsensi: () => _pindahTab(2),
       ),
       // 5. Rekap Laporan
@@ -111,9 +113,14 @@ class _DashboardAdminState extends State<DashboardAdmin> {
         showAppBar: false,
         onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
         onOpenNotifikasi: _bukaNotifikasi,
-        onBukaProfil: () => _pindahTab(6),
+        onBukaProfil: () => _pindahTab(7),
       ),
-      // 6. Profil Admin
+      // 6. Pengelolaan Lokasi & Jam Masuk
+      LokasiJamMasukScreen(
+        onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+        onBack: () => _pindahTab(0),
+      ),
+      // 7. Profil Admin
       ProfileAdminScreen(
         showAppBar: false,
         onBukaRekapAbsensi: () => _pindahTab(2),
@@ -125,12 +132,19 @@ class _DashboardAdminState extends State<DashboardAdmin> {
       backgroundColor: const Color(0xFFF9FAFB),
 
       // Appbar hanya ditampilkan untuk tab yang belum punya floating top bar tersendiri
-      appBar: (_index == 0 || _index == 1 || _index == 2 || _index == 3 || _index == 4 || _index == 5)
+      appBar: (_index == 0 ||
+              _index == 1 ||
+              _index == 2 ||
+              _index == 3 ||
+              _index == 4 ||
+              _index == 5 ||
+              _index == 6)
           ? null
           : AppBar(
               title: Text(
                 _titles[_index],
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
               backgroundColor: primary,
               foregroundColor: Colors.white,
@@ -170,7 +184,7 @@ class _DashboardAdminState extends State<DashboardAdmin> {
         selectedIndex: _index,
         onItemSelected: _pindahTab,
         onOpenNotifikasi: _bukaNotifikasi,
-        onBukaProfil: () => _pindahTab(6),
+        onBukaProfil: () => _pindahTab(7),
       ),
 
       // Konten Layar

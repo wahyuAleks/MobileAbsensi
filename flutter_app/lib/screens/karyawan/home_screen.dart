@@ -63,7 +63,8 @@ class _HomeScreenState extends State<HomeScreen> {
       try {
         final prof = await ApiService.getProfile();
         if (mounted) {
-          if (prof['nama'] != null && prof['nama'].toString().trim().isNotEmpty) {
+          if (prof['nama'] != null &&
+              prof['nama'].toString().trim().isNotEmpty) {
             _nama = prof['nama'].toString().trim();
             await Session.setNama(_nama);
           }
@@ -91,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
           int terlambat = 0;
           for (final r in riwayat) {
             final st = (r['status'] ?? '').toString().toLowerCase();
-            if (st.contains('terlambat')) {
+            if (st.contains('terlambat') || st == 'telat') {
               terlambat++;
             } else if (r['jam_masuk'] != null) {
               hadir++;
@@ -147,14 +148,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _bukaAbsensi({bool? isMasuk}) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => AbsensiScreen(
-          initialIsMasuk: isMasuk ?? true,
-          isStandalone: true,
-        ),
-      ),
-    ).then((_) => _muat());
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) => AbsensiScreen(
+              initialIsMasuk: isMasuk ?? true,
+              isStandalone: true,
+            ),
+          ),
+        )
+        .then((_) => _muat());
   }
 
   @override
@@ -192,7 +195,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               children: [
                                 // Baris Avatar, Salam & Nama, Notifikasi
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Row(
                                       children: [
@@ -204,23 +208,29 @@ class _HomeScreenState extends State<HomeScreen> {
                                             color: const Color(0xFF9AA7DD),
                                             shape: BoxShape.circle,
                                             border: Border.all(
-                                              color: Colors.white.withValues(alpha: 0.3),
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.3),
                                               width: 1.5,
                                             ),
                                           ),
                                           child: ClipOval(
-                                            child: AppConstants.getImageUrl(_fotoProfil) != null
+                                            child: AppConstants.getImageUrl(
+                                                        _fotoProfil) !=
+                                                    null
                                                 ? Image.network(
-                                                    AppConstants.getImageUrl(_fotoProfil)!,
+                                                    AppConstants.getImageUrl(
+                                                        _fotoProfil)!,
                                                     width: 44,
                                                     height: 44,
                                                     fit: BoxFit.cover,
-                                                    errorBuilder: (_, __, ___) => Center(
+                                                    errorBuilder:
+                                                        (_, __, ___) => Center(
                                                       child: Text(
                                                         _getInitials(_nama),
                                                         style: const TextStyle(
                                                           fontSize: 16,
-                                                          fontWeight: FontWeight.bold,
+                                                          fontWeight:
+                                                              FontWeight.bold,
                                                           color: Colors.white,
                                                         ),
                                                       ),
@@ -231,7 +241,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                                       _getInitials(_nama),
                                                       style: const TextStyle(
                                                         fontSize: 16,
-                                                        fontWeight: FontWeight.bold,
+                                                        fontWeight:
+                                                            FontWeight.bold,
                                                         color: Colors.white,
                                                       ),
                                                     ),
@@ -240,13 +251,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                         const SizedBox(width: 12),
                                         Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               _salamWaktu(),
                                               style: TextStyle(
                                                 fontSize: 13,
-                                                color: Colors.white.withValues(alpha: 0.88),
+                                                color: Colors.white
+                                                    .withValues(alpha: 0.88),
                                               ),
                                             ),
                                             Text(
@@ -263,48 +276,64 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                     // Lonceng Notifikasi dengan Counter Angka Belum Dibaca
                                     ValueListenableBuilder<int>(
-                                      valueListenable: NotifikasiService.unreadCountNotifier,
+                                      valueListenable:
+                                          NotifikasiService.unreadCountNotifier,
                                       builder: (context, unreadCount, _) {
                                         return IconButton(
                                           icon: Stack(
                                             clipBehavior: Clip.none,
                                             children: [
-                                              const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 26),
+                                              const Icon(
+                                                  Icons
+                                                      .notifications_none_rounded,
+                                                  color: Colors.white,
+                                                  size: 26),
                                               if (unreadCount > 0)
                                                 Positioned(
                                                   top: -3,
                                                   right: -4,
                                                   child: Container(
-                                                    padding: const EdgeInsets.symmetric(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
                                                       horizontal: 5,
                                                       vertical: 1.5,
                                                     ),
-                                                    constraints: const BoxConstraints(
+                                                    constraints:
+                                                        const BoxConstraints(
                                                       minWidth: 18,
                                                       minHeight: 18,
                                                     ),
                                                     decoration: BoxDecoration(
-                                                      color: const Color(0xFFEF4444),
-                                                      borderRadius: BorderRadius.circular(10),
+                                                      color: const Color(
+                                                          0xFFEF4444),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              10),
                                                       border: Border.all(
                                                         color: Colors.white,
                                                         width: 1.8,
                                                       ),
                                                       boxShadow: [
                                                         BoxShadow(
-                                                          color: Colors.black.withValues(alpha: 0.25),
+                                                          color: Colors.black
+                                                              .withValues(
+                                                                  alpha: 0.25),
                                                           blurRadius: 4,
-                                                          offset: const Offset(0, 1),
+                                                          offset: const Offset(
+                                                              0, 1),
                                                         ),
                                                       ],
                                                     ),
                                                     alignment: Alignment.center,
                                                     child: Text(
-                                                      unreadCount > 9 ? '9+' : '$unreadCount',
+                                                      unreadCount > 9
+                                                          ? '9+'
+                                                          : '$unreadCount',
                                                       style: const TextStyle(
                                                         color: Colors.white,
                                                         fontSize: 10,
-                                                        fontWeight: FontWeight.w800,
+                                                        fontWeight:
+                                                            FontWeight.w800,
                                                         height: 1.1,
                                                       ),
                                                     ),
@@ -314,7 +343,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                           onPressed: () {
                                             NotifikasiService.syncFromBackend();
-                                            NotifikasiKaryawanPopup.show(context);
+                                            NotifikasiKaryawanPopup.show(
+                                                context);
                                           },
                                         );
                                       },
@@ -329,10 +359,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
+                                    border: Border.all(
+                                        color: const Color(0xFFE5E7EB),
+                                        width: 1.2),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.06),
+                                        color: Colors.black
+                                            .withValues(alpha: 0.06),
                                         blurRadius: 14,
                                         offset: const Offset(0, 6),
                                       ),
@@ -345,24 +378,33 @@ class _HomeScreenState extends State<HomeScreen> {
                                         children: [
                                           Expanded(
                                             child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 14,
+                                                      vertical: 12),
                                               decoration: BoxDecoration(
                                                 color: const Color(0xFFF8FAFC),
-                                                borderRadius: BorderRadius.circular(14),
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
                                               ),
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   const Text(
                                                     'Jam Masuk',
-                                                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                                                    style: TextStyle(
+                                                        fontSize: 12,
+                                                        color:
+                                                            Color(0xFF6B7280)),
                                                   ),
                                                   const SizedBox(height: 4),
                                                   Text(
                                                     _jamMasuk ?? '—:—',
                                                     style: const TextStyle(
                                                       fontSize: 18,
-                                                      fontWeight: FontWeight.bold,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                       color: Color(0xFF111827),
                                                     ),
                                                   ),
@@ -373,24 +415,33 @@ class _HomeScreenState extends State<HomeScreen> {
                                           const SizedBox(width: 12),
                                           Expanded(
                                             child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 14,
+                                                      vertical: 12),
                                               decoration: BoxDecoration(
                                                 color: const Color(0xFFF8FAFC),
-                                                borderRadius: BorderRadius.circular(14),
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
                                               ),
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   const Text(
                                                     'Jam Pulang',
-                                                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                                                    style: TextStyle(
+                                                        fontSize: 12,
+                                                        color:
+                                                            Color(0xFF6B7280)),
                                                   ),
                                                   const SizedBox(height: 4),
                                                   Text(
                                                     _jamPulang ?? '—:—',
                                                     style: const TextStyle(
                                                       fontSize: 18,
-                                                      fontWeight: FontWeight.bold,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                       color: Color(0xFF111827),
                                                     ),
                                                   ),
@@ -410,14 +461,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                             foregroundColor: Colors.white,
                                             elevation: 0,
                                             shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(12),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                             ),
                                           ),
                                           onPressed: () => _bukaAbsensi(),
-                                          icon: const Icon(Icons.camera_alt, size: 18),
+                                          icon: const Icon(Icons.camera_alt,
+                                              size: 18),
                                           label: const Text(
                                             'Absensi Sekarang',
-                                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                            style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold),
                                           ),
                                         ),
                                       ),
@@ -474,7 +529,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             label: 'Riwayat\n ',
                             onTap: () {
                               Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const RiwayatAbsenScreen()),
+                                MaterialPageRoute(
+                                    builder: (_) => const RiwayatAbsenScreen()),
                               );
                             },
                           ),
@@ -485,7 +541,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             label: 'Laporan\n ',
                             onTap: () {
                               Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const LaporanScreen()),
+                                MaterialPageRoute(
+                                    builder: (_) => const LaporanScreen()),
                               );
                             },
                           ),
@@ -496,7 +553,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             label: 'Pengajuan\nCuti',
                             onTap: () {
                               Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const PengajuanCutiScreen()),
+                                MaterialPageRoute(
+                                    builder: (_) =>
+                                        const PengajuanCutiScreen()),
                               );
                             },
                           ),
@@ -601,7 +660,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
+                          border: Border.all(
+                              color: const Color(0xFFE5E7EB), width: 1.2),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.02),
@@ -619,7 +679,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               title: 'Absensi Masuk',
                               subtitle: 'Kemarin, 17 Agt',
                             ),
-                            const Divider(height: 1, indent: 60, endIndent: 16, color: Color(0xFFF3F4F6)),
+                            const Divider(
+                                height: 1,
+                                indent: 60,
+                                endIndent: 16,
+                                color: Color(0xFFF3F4F6)),
                             _buildAktivitasItem(
                               icon: Icons.check_circle,
                               iconBg: const Color(0xFFDCFCE7),
@@ -627,7 +691,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               title: 'Laporan Dikirim',
                               subtitle: 'Kemarin, 17 Agt',
                             ),
-                            const Divider(height: 1, indent: 60, endIndent: 16, color: Color(0xFFF3F4F6)),
+                            const Divider(
+                                height: 1,
+                                indent: 60,
+                                endIndent: 16,
+                                color: Color(0xFFF3F4F6)),
                             _buildAktivitasItem(
                               icon: Icons.access_time,
                               iconBg: const Color(0xFFFFEDD5),

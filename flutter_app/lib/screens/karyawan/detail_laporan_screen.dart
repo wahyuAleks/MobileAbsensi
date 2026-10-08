@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/constants.dart';
 
 /// Halaman Detail Laporan Karyawan
 /// Dibuat persis 100% sesuai screenshot desain Figma yang dikirimkan user:
@@ -44,6 +45,7 @@ class DetailLaporanScreen extends StatelessWidget {
         'Penyemprotan 100% selesai. Tidak ada kendala signifikan.';
     final rencanaEsok = item['rencana_esok']?.toString() ??
         'Penyemprotan Blok B — 5 Ha dengan drone DA-002.';
+    final lampiran = item['lampiran']?.toString();
 
     return PopScope(
       canPop: onBack == null,
@@ -270,6 +272,45 @@ class DetailLaporanScreen extends StatelessWidget {
                         ],
                       ),
                     ),
+                    if (lampiran != null && lampiran.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F3F3),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'DOKUMENTASI KEGIATAN LAPANGAN',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF6B7280),
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                AppConstants.getImageUrl(lampiran)!,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Text(
+                                      'Foto dokumentasi tidak dapat dimuat.'),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
