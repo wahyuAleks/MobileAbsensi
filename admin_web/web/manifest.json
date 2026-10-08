@@ -1,0 +1,10 @@
+{
+    "name": "Dashboard Admin Absensi",
+    "short_name": "Admin Web",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0F172A",
+    "theme_color": "#4F5BA8",
+    "description": "Dashboard Admin Absensi Karyawan berbasis Web",
+    "orientation": "portrait-primary"
+}
