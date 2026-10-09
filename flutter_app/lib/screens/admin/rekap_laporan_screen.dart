@@ -6,6 +6,7 @@ import 'components/notifikasi_sheet.dart';
 class RekapLaporanScreen extends StatefulWidget {
   final bool showAppBar;
   final VoidCallback? onOpenDrawer;
+  final VoidCallback? onBack;
   final VoidCallback? onOpenNotifikasi;
   final VoidCallback? onBukaProfil;
 
@@ -13,6 +14,7 @@ class RekapLaporanScreen extends StatefulWidget {
     super.key,
     this.showAppBar = false,
     this.onOpenDrawer,
+    this.onBack,
     this.onOpenNotifikasi,
     this.onBukaProfil,
   });
@@ -251,29 +253,15 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Hamburger + Judul Rekap Laporan
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.menu_rounded,
-                              size: 26,
-                              color: Color(0xFF111827),
-                            ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: widget.onOpenDrawer,
-                          ),
-                          const SizedBox(width: 14),
-                          const Text(
-                            'Rekap Laporan',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF111827),
-                            ),
-                          ),
-                        ],
+                      IconButton(
+                        icon: const Icon(
+                          Icons.menu_rounded,
+                          size: 26,
+                          color: Color(0xFF111827),
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: widget.onOpenDrawer,
                       ),
 
                       // Bell Notifikasi & Avatar "SA"
@@ -346,6 +334,30 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    if (widget.onBack != null) ...[
+                      IconButton(
+                        tooltip: 'Kembali ke halaman sebelumnya',
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 40, minHeight: 40),
+                        onPressed: widget.onBack,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    const Text(
+                      'Rekap Laporan',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 18),
 

@@ -1,6 +1,7 @@
 const Laporan = require('../models/Laporan');
 const User = require('../models/User');
 const { Op } = require('sequelize');
+const jenisKegiatanController = require('./jenisKegiatanController');
 
 // FORM LAPORAN -> SUBMIT
 exports.submitLaporan = async (req, res) => {
@@ -10,6 +11,7 @@ exports.submitLaporan = async (req, res) => {
       judul,
       isi_laporan,
       jenis_kegiatan,
+      jenis_kegiatan_id,
       lokasi,
       unit_drone,
       luas_area,
@@ -37,6 +39,13 @@ exports.submitLaporan = async (req, res) => {
     if (reportStatus === 'terkirim' && (!title || !isiInput)) {
       return res.status(400).json({ message: 'Judul dan uraian pekerjaan wajib diisi' });
     }
+    const resolvedType = await jenisKegiatanController.resolveValue(
+      jenis_kegiatan_id,
+      jenis_kegiatan,
+    );
+    if (resolvedType.error) {
+      return res.status(400).json({ message: resolvedType.error });
+    }
     const isi = reportStatus === 'draft' ? isiInput : isiInput || 'Laporan kegiatan telah dicatat.';
 
     const laporan = await Laporan.create({
@@ -44,7 +53,8 @@ exports.submitLaporan = async (req, res) => {
       tanggal,
       judul: title || 'Draft tanpa judul',
       isi_laporan: isi,
-      jenis_kegiatan: jenis_kegiatan || title || 'Penyemprotan Pestisida',
+      jenis_kegiatan_id: resolvedType.value.id,
+      jenis_kegiatan: resolvedType.value.nama,
       lokasi: lokasi || '',
       unit_drone: unit_drone || '',
       luas_area: luas_area || '',
@@ -81,6 +91,7 @@ exports.updateDraft = async (req, res) => {
       judul,
       isi_laporan,
       jenis_kegiatan,
+      jenis_kegiatan_id,
       lokasi,
       unit_drone,
       luas_area,
@@ -95,11 +106,27 @@ exports.updateDraft = async (req, res) => {
         ? uraian_pekerjaan.trim()
         : laporan.isi_laporan;
 
+    const resolvedType = (jenis_kegiatan_id != null || jenis_kegiatan != null)
+      ? await jenisKegiatanController.resolveValue(
+        jenis_kegiatan_id,
+        jenis_kegiatan,
+        laporan.jenis_kegiatan_id,
+      )
+      : { value: null };
+    if (resolvedType.error) {
+      return res.status(400).json({ message: resolvedType.error });
+    }
+
     await laporan.update({
       tanggal: tanggal || laporan.tanggal,
       judul: title || 'Draft tanpa judul',
       isi_laporan: body,
-      jenis_kegiatan: jenis_kegiatan ?? laporan.jenis_kegiatan,
+      ...(resolvedType.value
+        ? {
+          jenis_kegiatan_id: resolvedType.value.id,
+          jenis_kegiatan: resolvedType.value.nama,
+        }
+        : {}),
       lokasi: lokasi ?? laporan.lokasi,
       unit_drone: unit_drone ?? laporan.unit_drone,
       luas_area: luas_area ?? laporan.luas_area,
@@ -132,6 +159,7 @@ exports.kirimDraft = async (req, res) => {
       judul,
       isi_laporan,
       jenis_kegiatan,
+      jenis_kegiatan_id,
       lokasi,
       unit_drone,
       luas_area,
@@ -150,11 +178,27 @@ exports.kirimDraft = async (req, res) => {
       return res.status(400).json({ message: 'Tanggal, judul, dan uraian pekerjaan wajib diisi' });
     }
 
+    const resolvedType = (jenis_kegiatan_id != null || jenis_kegiatan != null)
+      ? await jenisKegiatanController.resolveValue(
+        jenis_kegiatan_id,
+        jenis_kegiatan,
+        laporan.jenis_kegiatan_id,
+      )
+      : { value: null };
+    if (resolvedType.error) {
+      return res.status(400).json({ message: resolvedType.error });
+    }
+
     await laporan.update({
       tanggal,
       judul: title,
       isi_laporan: body,
-      jenis_kegiatan: jenis_kegiatan ?? laporan.jenis_kegiatan,
+      ...(resolvedType.value
+        ? {
+          jenis_kegiatan_id: resolvedType.value.id,
+          jenis_kegiatan: resolvedType.value.nama,
+        }
+        : {}),
       lokasi: lokasi ?? laporan.lokasi,
       unit_drone: unit_drone ?? laporan.unit_drone,
       luas_area: luas_area ?? laporan.luas_area,
@@ -182,7 +226,6 @@ exports.editLaporanAdmin = async (req, res) => {
       'tanggal',
       'judul',
       'isi_laporan',
-      'jenis_kegiatan',
       'lokasi',
       'unit_drone',
       'luas_area',
@@ -195,6 +238,23 @@ exports.editLaporanAdmin = async (req, res) => {
       if (typeof req.body[field] === 'string') {
         updates[field] = req.body[field].trim();
       }
+    }
+
+    if (
+      req.body.jenis_kegiatan_id != null ||
+      (typeof req.body.jenis_kegiatan === 'string' &&
+        req.body.jenis_kegiatan.trim() !== (laporan.jenis_kegiatan ?? ''))
+    ) {
+      const resolvedType = await jenisKegiatanController.resolveValue(
+        req.body.jenis_kegiatan_id,
+        req.body.jenis_kegiatan,
+        laporan.jenis_kegiatan_id,
+      );
+      if (resolvedType.error) {
+        return res.status(400).json({ message: resolvedType.error });
+      }
+      updates.jenis_kegiatan_id = resolvedType.value.id;
+      updates.jenis_kegiatan = resolvedType.value.nama;
     }
 
     const judul = updates.judul ?? laporan.judul;

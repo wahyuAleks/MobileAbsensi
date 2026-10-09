@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants.dart';
 import '../../../core/notifikasi_service.dart';
-import '../absensi_screen.dart';
+import '../jadwal_absensi_screen.dart';
 import '../pengajuan_cuti_screen.dart';
 import '../laporan_screen.dart';
 
@@ -10,7 +10,7 @@ import '../laporan_screen.dart';
 /// - Kategori filter tab (Semua, Absensi, Cuti, Laporan)
 /// - Pembeda visual notifikasi baru (unread) vs sudah dibaca (read)
 /// - Tombol "Tandai Semua Dibaca"
-/// - Navigasi langsung (deep-link): Absen -> AbsensiScreen, Cuti -> PengajuanCutiScreen (Status), Laporan -> LaporanScreen
+/// - Navigasi langsung (deep-link): Absen -> daftar slot kerja, Cuti -> PengajuanCutiScreen, Laporan -> LaporanScreen
 class NotifikasiKaryawanPopup extends StatefulWidget {
   final VoidCallback? onTapCuti;
   final VoidCallback? onTapLaporan;
@@ -657,13 +657,9 @@ class _NotifikasiKaryawanPopupState extends State<NotifikasiKaryawanPopup> {
         if (widget.onTapAbsen != null) {
           widget.onTapAbsen!();
         } else {
-          final bool isMasuk = item.data?['isMasuk'] ?? true;
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => AbsensiScreen(
-                initialIsMasuk: isMasuk,
-                isStandalone: true,
-              ),
+              builder: (_) => const JadwalAbsensiScreen(),
             ),
           );
         }

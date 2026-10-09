@@ -11,9 +11,11 @@ const { initializeRealtime } = require('./src/services/realtime');
 require('./src/models/User');
 require('./src/models/Location');
 require('./src/models/WorkSchedule');
+require('./src/models/WorkAssignment');
 require('./src/models/Absensi');
 require('./src/models/Cuti');
 require('./src/models/Laporan');
+require('./src/models/JenisKegiatan');
 require('./src/models/Notifikasi');
 
 const authRoutes = require('./src/routes/authRoutes');
@@ -23,6 +25,8 @@ const laporanRoutes = require('./src/routes/laporanRoutes');
 const karyawanRoutes = require('./src/routes/karyawanRoutes');
 const notifikasiRoutes = require('./src/routes/notifikasiRoutes');
 const locationRoutes = require('./src/routes/locationRoutes');
+const workAssignmentRoutes = require('./src/routes/workAssignmentRoutes');
+const jenisKegiatanRoutes = require('./src/routes/jenisKegiatanRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -41,6 +45,8 @@ app.use('/api/laporan', laporanRoutes);
 app.use('/api/karyawan', karyawanRoutes);
 app.use('/api/notifikasi', notifikasiRoutes);
 app.use('/api/lokasi', locationRoutes);
+app.use('/api/jadwal-kerja', workAssignmentRoutes);
+app.use('/api/jenis-kegiatan', jenisKegiatanRoutes);
 
 app.get('/', (req, res) => res.json({ message: 'Absensi API aktif' }));
 
@@ -48,9 +54,11 @@ const PORT = process.env.PORT || 3000;
 const { exec } = require('child_process');
 const bcrypt = require('bcryptjs');
 const mysql = require('mysql2/promise');
-const { DataTypes } = require('sequelize');
+const { DataTypes, Op } = require('sequelize');
 const User = require('./src/models/User');
 const Location = require('./src/models/Location');
+const JenisKegiatan = require('./src/models/JenisKegiatan');
+const Laporan = require('./src/models/Laporan');
 
 const DEFAULT_LOCATIONS = [
   'Dhoho I',
@@ -72,9 +80,10 @@ async function ensureDatabaseExists() {
   const user = process.env.DB_USER || 'root';
   const password = process.env.DB_PASS || '';
   const dbName = process.env.DB_NAME || 'absensi_db';
+  let connection;
 
   try {
-    const connection = await mysql.createConnection({
+    connection = await mysql.createConnection({
       host,
       port,
       user,
@@ -83,10 +92,19 @@ async function ensureDatabaseExists() {
     await connection.query(
       `CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
     );
-    await connection.end();
     console.log(`✓ Database '${dbName}' diverifikasi / dibuat otomatis.`);
   } catch (err) {
-    console.warn(`[Peringatan DB] Tidak dapat membuat database '${dbName}' otomatis: ${err.message}`);
+    console.warn(
+      `[Peringatan DB] Tidak dapat membuat database '${dbName}' otomatis: ${err.message || err.code || err}`
+    );
+  } finally {
+    if (connection) {
+      try {
+        await connection.end();
+      } catch (err) {
+        console.warn(`[Peringatan DB] Gagal menutup koneksi pemeriksaan: ${err.message || err}`);
+      }
+    }
   }
 }
 
@@ -97,11 +115,6 @@ function tryAdbReverse(port) {
     }
   });
 }
-
-// Menjaga agar port forwarding USB tidak putus saat HP terkunci atau kabel goyang
-setInterval(() => {
-  exec(`adb reverse tcp:${PORT} tcp:${PORT}`, () => {});
-}, 3000);
 
 async function seedDefaultLocations() {
   await sequelize.query(`
@@ -227,6 +240,27 @@ async function syncExistingCutiNotifications() {
 
 async function ensureAttendanceScheduleColumns() {
   const queryInterface = sequelize.getQueryInterface();
+  const locations = await queryInterface.describeTable('locations');
+  if (!locations.latitude) {
+    await queryInterface.addColumn('locations', 'latitude', {
+      type: DataTypes.DECIMAL(10, 7),
+      allowNull: true,
+    });
+  }
+  if (!locations.longitude) {
+    await queryInterface.addColumn('locations', 'longitude', {
+      type: DataTypes.DECIMAL(10, 7),
+      allowNull: true,
+    });
+  }
+  if (!locations.radius_meters) {
+    await queryInterface.addColumn('locations', 'radius_meters', {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 250,
+    });
+  }
+
   const users = await queryInterface.describeTable('users');
   if (!users.location_id) {
     await queryInterface.addColumn('users', 'location_id', {
@@ -245,6 +279,133 @@ async function ensureAttendanceScheduleColumns() {
       allowNull: true,
     });
   }
+  if (!absensi.work_assignment_id) {
+    await queryInterface.addColumn('absensi', 'work_assignment_id', {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'work_assignments', key: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+    });
+  }
+  const indexes = await queryInterface.showIndex('absensi');
+  if (!indexes.some((index) => index.name === 'absensi_work_assignment_unique')) {
+    await queryInterface.addIndex('absensi', ['work_assignment_id'], {
+      name: 'absensi_work_assignment_unique',
+      unique: true,
+    });
+  }
+  const [assignmentConstraints] = await sequelize.query(`
+    SELECT CONSTRAINT_NAME
+    FROM information_schema.KEY_COLUMN_USAGE
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'absensi'
+      AND COLUMN_NAME = 'work_assignment_id'
+      AND REFERENCED_TABLE_NAME = 'work_assignments'
+  `);
+  if (assignmentConstraints.length === 0) {
+    await queryInterface.addConstraint('absensi', {
+      fields: ['work_assignment_id'],
+      type: 'foreign key',
+      name: 'absensi_work_assignment_fk',
+      references: { table: 'work_assignments', field: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+    });
+  }
+}
+
+async function ensureJenisKegiatanMaster() {
+  const queryInterface = sequelize.getQueryInterface();
+  const laporanColumns = await queryInterface.describeTable('laporan');
+  const reportColumns = {
+    jenis_kegiatan: { type: DataTypes.STRING, allowNull: true },
+    jenis_kegiatan_id: { type: DataTypes.INTEGER, allowNull: true },
+    lokasi: { type: DataTypes.STRING, allowNull: true },
+    unit_drone: { type: DataTypes.STRING, allowNull: true },
+    luas_area: { type: DataTypes.STRING, allowNull: true },
+    uraian_pekerjaan: { type: DataTypes.TEXT, allowNull: true },
+    hasil: { type: DataTypes.TEXT, allowNull: true },
+    rencana_esok: { type: DataTypes.TEXT, allowNull: true },
+    status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'Terkirim' },
+  };
+  for (const [column, definition] of Object.entries(reportColumns)) {
+    if (!laporanColumns[column]) {
+      await queryInterface.addColumn('laporan', column, definition);
+    }
+  }
+  const reportIndexes = await queryInterface.showIndex('laporan');
+  if (!reportIndexes.some((index) => index.name === 'laporan_jenis_kegiatan_id_idx')) {
+    await queryInterface.addIndex('laporan', ['jenis_kegiatan_id'], {
+      name: 'laporan_jenis_kegiatan_id_idx',
+    });
+  }
+
+  const [constraints] = await sequelize.query(`
+    SELECT CONSTRAINT_NAME
+    FROM information_schema.KEY_COLUMN_USAGE
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'laporan'
+      AND COLUMN_NAME = 'jenis_kegiatan_id'
+      AND REFERENCED_TABLE_NAME = 'jenis_kegiatan'
+  `);
+  if (constraints.length === 0) {
+    await queryInterface.addConstraint('laporan', {
+      fields: ['jenis_kegiatan_id'],
+      type: 'foreign key',
+      name: 'laporan_jenis_kegiatan_fk',
+      references: { table: 'jenis_kegiatan', field: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+    });
+  }
+
+  const defaults = [
+    'Penyemprotan Pestisida',
+    'Survei dan Pemetaan',
+    'Survei dan Pemetaan Lahan',
+    'Pemeliharaan Drone',
+    'Pemeliharaan Rutin Drone',
+    'Penyebaran Pupuk',
+    'Penyebaran Pupuk Urea',
+    'Operasional Lapangan',
+  ];
+  for (const nama of defaults) {
+    await JenisKegiatan.findOrCreate({
+      where: { nama },
+      defaults: { nama, is_active: true },
+    });
+  }
+
+  const legacyTypes = await Laporan.findAll({
+    attributes: ['jenis_kegiatan'],
+    where: { jenis_kegiatan: { [Op.ne]: null } },
+    group: ['jenis_kegiatan'],
+    raw: true,
+  });
+  for (const { jenis_kegiatan: namaRaw } of legacyTypes) {
+    const nama = typeof namaRaw === 'string' ? namaRaw.trim() : '';
+    if (nama) {
+      await JenisKegiatan.findOrCreate({
+        where: { nama },
+        defaults: { nama, is_active: true },
+      });
+    }
+  }
+
+  const unlinkedReports = await Laporan.findAll({
+    where: { jenis_kegiatan_id: null },
+    attributes: ['id', 'jenis_kegiatan'],
+  });
+  for (const report of unlinkedReports) {
+    if (!report.jenis_kegiatan) continue;
+    const jenis = await JenisKegiatan.findOne({
+      where: { nama: report.jenis_kegiatan.trim() },
+    });
+    if (jenis) {
+      await report.update({ jenis_kegiatan_id: jenis.id });
+    }
+  }
 }
 
 async function startServer() {
@@ -252,6 +413,7 @@ async function startServer() {
     await ensureDatabaseExists();
     await sequelize.sync(); // ganti { alter: true } saat development kalau skema berubah
     await ensureAttendanceScheduleColumns();
+    await ensureJenisKegiatanMaster();
     console.log('✓ Database terhubung & model tersinkronisasi');
     await seedDefaultLocations();
     await seedDefaultUsers();
@@ -260,10 +422,21 @@ async function startServer() {
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`✓ Server jalan di port ${PORT} (http://0.0.0.0:${PORT})`);
       tryAdbReverse(PORT);
+      // Keep USB port forwarding alive while the server is running.
+      const adbReverseInterval = setInterval(() => {
+        exec(`adb reverse tcp:${PORT} tcp:${PORT}`, () => {});
+      }, 3000);
+      adbReverseInterval.unref();
     });
   } catch (err) {
-    console.error('✗ Gagal konek ke database:', err.message);
+    console.error('✗ Gagal menyiapkan backend/database:', err);
     console.error('Tips: Pastikan MySQL sudah dijalankan di XAMPP/Laragon dan konfigurasi .env sudah sesuai.');
+    try {
+      await sequelize.close();
+    } catch (closeError) {
+      console.error('✗ Gagal menutup koneksi database:', closeError);
+    }
+    process.exitCode = 1;
   }
 }
 

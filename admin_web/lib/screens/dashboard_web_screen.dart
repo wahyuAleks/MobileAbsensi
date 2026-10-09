@@ -11,6 +11,8 @@ import 'rekap_absensi_screen.dart';
 import 'persetujuan_cuti_screen.dart';
 import 'rekap_laporan_screen.dart';
 import 'profile_admin_screen.dart';
+import 'jadwal_karyawan_screen.dart';
+import 'jenis_kegiatan_screen.dart';
 
 class DashboardWebScreen extends StatefulWidget {
   final int initialIndex;
@@ -84,7 +86,7 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
         onBukaKaryawan: () => _pindahTab(1),
         onBukaRekapAbsensi: () => _pindahTab(2),
         onBukaPersetujuanCuti: () => _pindahTab(4),
-        onBukaProfil: () => _pindahTab(6),
+        onBukaProfil: () => _pindahTab(8),
       ),
       DataKaryawanScreen(
         showAppBar: false,
@@ -92,7 +94,7 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
         onOpenNotifikasi: _bukaNotifikasi,
         onBukaRekapAbsensi: () => _pindahTab(2),
         onBukaPersetujuanCuti: () => _pindahTab(4),
-        onBukaProfil: () => _pindahTab(6),
+        onBukaProfil: () => _pindahTab(8),
       ),
       MonitoringAbsensiScreen(
         showAppBar: false,
@@ -100,7 +102,7 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
         onOpenNotifikasi: _bukaNotifikasi,
         onBukaKaryawan: () => _pindahTab(1),
         onBukaPersetujuanCuti: () => _pindahTab(4),
-        onBukaProfil: () => _pindahTab(6),
+        onBukaProfil: () => _pindahTab(8),
       ),
       RekapAbsensiScreen(
         showAppBar: false,
@@ -108,21 +110,23 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
         onOpenNotifikasi: _bukaNotifikasi,
         onBukaKaryawan: () => _pindahTab(1),
         onBukaPersetujuanCuti: () => _pindahTab(4),
-        onBukaProfil: () => _pindahTab(6),
+        onBukaProfil: () => _pindahTab(8),
       ),
       PersetujuanCutiScreen(
         showAppBar: false,
         onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
         onOpenNotifikasi: _bukaNotifikasi,
-        onBukaProfil: () => _pindahTab(6),
+        onBukaProfil: () => _pindahTab(8),
         onBukaRekapAbsensi: () => _pindahTab(2),
       ),
       RekapLaporanScreen(
         showAppBar: false,
         onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
         onOpenNotifikasi: _bukaNotifikasi,
-        onBukaProfil: () => _pindahTab(6),
+        onBukaProfil: () => _pindahTab(8),
       ),
+      const JadwalKaryawanScreen(),
+      const JenisKegiatanScreen(),
       ProfileAdminScreen(
         showAppBar: false,
         onBukaRekapAbsensi: () => _pindahTab(2),
@@ -138,7 +142,7 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
             selectedIndex: _index,
             onItemSelected: _pindahTab,
             onOpenNotifikasi: _bukaNotifikasi,
-            onBukaProfil: () => _pindahTab(6),
+            onBukaProfil: () => _pindahTab(8),
           ),
           Expanded(
             child: Column(

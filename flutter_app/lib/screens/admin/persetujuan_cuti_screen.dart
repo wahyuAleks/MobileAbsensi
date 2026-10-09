@@ -6,6 +6,7 @@ import 'components/notifikasi_sheet.dart';
 class PersetujuanCutiScreen extends StatefulWidget {
   final bool showAppBar;
   final VoidCallback? onOpenDrawer;
+  final VoidCallback? onBack;
   final VoidCallback? onOpenNotifikasi;
   final VoidCallback? onBukaProfil;
   final VoidCallback? onBukaRekapAbsensi;
@@ -14,6 +15,7 @@ class PersetujuanCutiScreen extends StatefulWidget {
     super.key,
     this.showAppBar = false,
     this.onOpenDrawer,
+    this.onBack,
     this.onOpenNotifikasi,
     this.onBukaProfil,
     this.onBukaRekapAbsensi,
@@ -66,7 +68,8 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
       'periode': '28 Agustus 2026',
       'alasan': 'Sakit flu dengan surat\ndokter',
       'status': 'ditolak',
-      'alasan_penolakan': 'Ditolak: Staf terlalu sedikit saya periode tersebut.',
+      'alasan_penolakan':
+          'Ditolak: Staf terlalu sedikit saya periode tersebut.',
     },
   ];
 
@@ -101,15 +104,19 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Setujui Pengajuan Cuti', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Setujui Pengajuan Cuti',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         content: Text('Yakin ingin menyetujui pengajuan cuti untuk $nama?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Batal')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF33691E),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Setujui'),
@@ -136,7 +143,9 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pengajuan cuti berhasil disetujui'), backgroundColor: Color(0xFF16A34A)),
+        const SnackBar(
+            content: Text('Pengajuan cuti berhasil disetujui'),
+            backgroundColor: Color(0xFF16A34A)),
       );
       _muat();
     } catch (e) {
@@ -178,7 +187,9 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pengajuan cuti ditolak'), backgroundColor: Color(0xFFDC2626)),
+        const SnackBar(
+            content: Text('Pengajuan cuti ditolak'),
+            backgroundColor: Color(0xFFDC2626)),
       );
       _muat();
     } catch (e) {
@@ -203,7 +214,8 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Jenis: ${item['tipe']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text('Jenis: ${item['tipe']}',
+                style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
             Text('Durasi: ${item['durasi']}'),
             const SizedBox(height: 6),
@@ -214,13 +226,15 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
               const SizedBox(height: 8),
               Text(
                 '${item['alasan_penolakan']}',
-                style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    color: Color(0xFFDC2626), fontWeight: FontWeight.bold),
               ),
             ],
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tutup')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Tutup')),
         ],
       ),
     );
@@ -247,7 +261,8 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? const Color(0xFF4F5BA8) : const Color(0xFFE5E7EB),
+            color:
+                isSelected ? const Color(0xFF4F5BA8) : const Color(0xFFE5E7EB),
             width: isSelected ? 1.5 : 1,
           ),
           boxShadow: [
@@ -317,33 +332,20 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Hamburger + Judul Persetujuan Cuti
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.menu_rounded,
-                              size: 26,
-                              color: Color(0xFF111827),
-                            ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: widget.onOpenDrawer,
-                          ),
-                          const SizedBox(width: 14),
-                          const Text(
-                            'Persetujuan Cuti',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF111827),
-                            ),
-                          ),
-                        ],
+                      IconButton(
+                        icon: const Icon(
+                          Icons.menu_rounded,
+                          size: 26,
+                          color: Color(0xFF111827),
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: widget.onOpenDrawer,
                       ),
 
                       // Bell Notifikasi & Avatar "SA"
@@ -366,12 +368,15 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
                                 top: -2,
                                 right: -2,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 4, vertical: 1),
+                                  constraints: const BoxConstraints(
+                                      minWidth: 16, minHeight: 16),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFEF4444),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.white, width: 1.5),
+                                    border: Border.all(
+                                        color: Colors.white, width: 1.5),
                                   ),
                                   alignment: Alignment.center,
                                   child: const Text(
@@ -414,6 +419,31 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    if (widget.onBack != null) ...[
+                      IconButton(
+                        tooltip: 'Kembali ke halaman sebelumnya',
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 40, minHeight: 40),
+                        onPressed: widget.onBack,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    const Text(
+                      'Persetujuan Cuti',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
                 // 2. DAFTAR & SUMMARY BADGES DINAMIS
                 FutureBuilder<List<dynamic>>(
                   future: _future,
@@ -424,15 +454,22 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
                       items = snap.data!.map((e) {
                         final m = Map<String, dynamic>.from(e);
                         final user = m['User'] ?? {};
-                        final rawNama = (user['nama'] ?? m['nama'] ?? 'Karyawan').toString();
+                        final rawNama =
+                            (user['nama'] ?? m['nama'] ?? 'Karyawan')
+                                .toString();
                         final parts = rawNama.trim().split(RegExp(r'\s+'));
                         final initials = parts.length >= 2
                             ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
-                            : (rawNama.isNotEmpty ? rawNama[0].toUpperCase() : 'K');
+                            : (rawNama.isNotEmpty
+                                ? rawNama[0].toUpperCase()
+                                : 'K');
 
-                        final statusRaw = (m['status'] ?? 'menunggu').toString().toLowerCase();
+                        final statusRaw = (m['status'] ?? 'menunggu')
+                            .toString()
+                            .toLowerCase();
                         String normalizedStatus = 'menunggu';
-                        if (statusRaw.contains('terima') || statusRaw.contains('setuju')) {
+                        if (statusRaw.contains('terima') ||
+                            statusRaw.contains('setuju')) {
                           normalizedStatus = 'disetujui';
                         } else if (statusRaw.contains('tolak')) {
                           normalizedStatus = 'ditolak';
@@ -440,7 +477,9 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
 
                         final tglMulai = m['tanggal_mulai'] ?? '-';
                         final tglSelesai = m['tanggal_selesai'] ?? '-';
-                        final periode = (tglMulai == tglSelesai) ? '$tglMulai' : '$tglMulai - $tglSelesai';
+                        final periode = (tglMulai == tglSelesai)
+                            ? '$tglMulai'
+                            : '$tglMulai - $tglSelesai';
 
                         int durasiHari = 1;
                         try {
@@ -456,7 +495,8 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
                           'nama': rawNama,
                           'initials': initials,
                           'avatarColor': const Color(0xFF385C83),
-                          'tipe': m['jenis_cuti'] ?? m['tipe'] ?? 'Cuti Tahunan',
+                          'tipe':
+                              m['jenis_cuti'] ?? m['tipe'] ?? 'Cuti Tahunan',
                           'durasi': '$durasiHari Hari',
                           'periode': periode,
                           'alasan': m['alasan'] ?? '-',
@@ -468,9 +508,12 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
                       items = _mockCuti;
                     }
 
-                    final countMenunggu = items.where((k) => k['status'] == 'menunggu').length;
-                    final countDisetujui = items.where((k) => k['status'] == 'disetujui').length;
-                    final countDitolak = items.where((k) => k['status'] == 'ditolak').length;
+                    final countMenunggu =
+                        items.where((k) => k['status'] == 'menunggu').length;
+                    final countDisetujui =
+                        items.where((k) => k['status'] == 'disetujui').length;
+                    final countDitolak =
+                        items.where((k) => k['status'] == 'ditolak').length;
 
                     // Filter list
                     final displayed = items.where((k) {
@@ -519,288 +562,326 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
                             child: Center(
                               child: Text(
                                 'Tidak ada pengajuan cuti untuk status ini',
-                                style: TextStyle(color: Color(0xFF6B7280), fontSize: 14),
+                                style: TextStyle(
+                                    color: Color(0xFF6B7280), fontSize: 14),
                               ),
                             ),
                           )
                         else
                           ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: displayed.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 16),
-                      itemBuilder: (context, i) {
-                        final item = displayed[i];
-                        final status = item['status'] as String;
-                        final nama = item['nama'] as String;
-                        final initials = item['initials'] as String;
-                        final avatarColor = (item['avatarColor'] as Color?) ?? const Color(0xFF385C83);
-                        final tipe = item['tipe'] as String;
-                        final durasi = item['durasi'] as String;
-                        final periode = item['periode'] as String;
-                        final alasan = item['alasan'] as String;
-                        final alasanPenolakan = item['alasan_penolakan'] as String?;
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: displayed.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 16),
+                            itemBuilder: (context, i) {
+                              final item = displayed[i];
+                              final status = item['status'] as String;
+                              final nama = item['nama'] as String;
+                              final initials = item['initials'] as String;
+                              final avatarColor =
+                                  (item['avatarColor'] as Color?) ??
+                                      const Color(0xFF385C83);
+                              final tipe = item['tipe'] as String;
+                              final durasi = item['durasi'] as String;
+                              final periode = item['periode'] as String;
+                              final alasan = item['alasan'] as String;
+                              final alasanPenolakan =
+                                  item['alasan_penolakan'] as String?;
 
-                        // Status Badge Colors
-                        Color badgeBg;
-                        Color badgeTextColor;
-                        String badgeText;
+                              // Status Badge Colors
+                              Color badgeBg;
+                              Color badgeTextColor;
+                              String badgeText;
 
-                        if (status == 'disetujui') {
-                          badgeBg = const Color(0xFFDCFCE7);
-                          badgeTextColor = const Color(0xFF15803D);
-                          badgeText = 'Disetujui';
-                        } else if (status == 'ditolak') {
-                          badgeBg = const Color(0xFFFECDD3);
-                          badgeTextColor = const Color(0xFFDC2626);
-                          badgeText = 'Ditolak';
-                        } else {
-                          badgeBg = const Color(0xFFFDE8C7);
-                          badgeTextColor = const Color(0xFFD97706);
-                          badgeText = 'Menunggu';
-                        }
+                              if (status == 'disetujui') {
+                                badgeBg = const Color(0xFFDCFCE7);
+                                badgeTextColor = const Color(0xFF15803D);
+                                badgeText = 'Disetujui';
+                              } else if (status == 'ditolak') {
+                                badgeBg = const Color(0xFFFECDD3);
+                                badgeTextColor = const Color(0xFFDC2626);
+                                badgeText = 'Ditolak';
+                              } else {
+                                badgeBg = const Color(0xFFFDE8C7);
+                                badgeTextColor = const Color(0xFFD97706);
+                                badgeText = 'Menunggu';
+                              }
 
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF3F4F6),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // 1. Header Card: Avatar + Nama/Cuti & Status Badge
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 18,
-                                        backgroundColor: avatarColor,
-                                        child: Text(
-                                          initials,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                              return Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF3F4F6),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // 1. Header Card: Avatar + Nama/Cuti & Status Badge
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            CircleAvatar(
+                                              radius: 18,
+                                              backgroundColor: avatarColor,
+                                              child: Text(
+                                                initials,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  nama,
+                                                  style: const TextStyle(
+                                                    fontSize: 14.5,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Color(0xFF111827),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  '$tipe • $durasi',
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Color(0xFF9CA3AF),
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            nama,
-                                            style: const TextStyle(
-                                              fontSize: 14.5,
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 14, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: badgeBg,
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                          ),
+                                          child: Text(
+                                            badgeText,
+                                            style: TextStyle(
+                                              fontSize: 12,
                                               fontWeight: FontWeight.bold,
-                                              color: Color(0xFF111827),
+                                              color: badgeTextColor,
                                             ),
                                           ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            '$tipe • $durasi',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Color(0xFF9CA3AF),
-                                              fontWeight: FontWeight.w500,
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+
+                                    // 2. Info Periode & Alasan
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        // Kolom Periode
+                                        Expanded(
+                                          flex: 4,
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              const Text(
+                                                'Periode',
+                                                style: TextStyle(
+                                                  fontSize: 11.5,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Color(0xFF9CA3AF),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                periode,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFF111827),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+
+                                        // Kolom Alasan
+                                        Expanded(
+                                          flex: 5,
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              const Text(
+                                                'Alasan',
+                                                style: TextStyle(
+                                                  fontSize: 11.5,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Color(0xFF9CA3AF),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                alasan,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFF111827),
+                                                  height: 1.25,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    // 3. Tombol Aksi Untuk Status 'Menunggu' (✓ Setujui | X Tolak | Detail)
+                                    if (status == 'menunggu') ...[
+                                      const SizedBox(height: 16),
+                                      Row(
+                                        children: [
+                                          // Tombol Setujui
+                                          InkWell(
+                                            onTap: () => _setujuiCuti(item),
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 8),
+                                              decoration: BoxDecoration(
+                                                color: const Color(
+                                                    0xFF33691E), // Olive green persis gambar
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                              ),
+                                              child: const Text(
+                                                '✓ Setujui',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 12.5,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+
+                                          // Tombol Tolak
+                                          InkWell(
+                                            onTap: () => _tolakCuti(item),
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 8),
+                                              decoration: BoxDecoration(
+                                                color: const Color(
+                                                    0xFFE11D48), // Crimson red persis gambar
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                              ),
+                                              child: const Text(
+                                                'X Tolak',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 12.5,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+
+                                          // Tombol Detail
+                                          InkWell(
+                                            onTap: () => _lihatDetail(item),
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black
+                                                        .withValues(
+                                                            alpha: 0.05),
+                                                    blurRadius: 4,
+                                                    offset: const Offset(0, 1),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: const Text(
+                                                'Detail',
+                                                style: TextStyle(
+                                                  color: Color(0xFF111827),
+                                                  fontSize: 12.5,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ],
                                       ),
                                     ],
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: badgeBg,
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    child: Text(
-                                      badgeText,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: badgeTextColor,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
 
-                              // 2. Info Periode & Alasan
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Kolom Periode
-                                  Expanded(
-                                    flex: 4,
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Periode',
-                                          style: TextStyle(
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFF9CA3AF),
-                                          ),
+                                    // 4. Kotak Alasan Penolakan Untuk Status 'Ditolak'
+                                    if (status == 'ditolak' &&
+                                        alasanPenolakan != null &&
+                                        alasanPenolakan.isNotEmpty) ...[
+                                      const SizedBox(height: 14),
+                                      Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 14, vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFCE7F3)
+                                              .withValues(
+                                                  alpha: 0.8), // Light pink box
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          periode,
+                                        child: Text(
+                                          alasanPenolakan,
                                           style: const TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.bold,
-                                            color: Color(0xFF111827),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  // Kolom Alasan
-                                  Expanded(
-                                    flex: 5,
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Alasan',
-                                          style: TextStyle(
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFF9CA3AF),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          alasan,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFF111827),
+                                            color: Color(0xFFDC2626),
                                             height: 1.25,
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              // 3. Tombol Aksi Untuk Status 'Menunggu' (✓ Setujui | X Tolak | Detail)
-                              if (status == 'menunggu') ...[
-                                const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    // Tombol Setujui
-                                    InkWell(
-                                      onTap: () => _setujuiCuti(item),
-                                      borderRadius: BorderRadius.circular(20),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF33691E), // Olive green persis gambar
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        child: const Text(
-                                          '✓ Setujui',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 10),
-
-                                    // Tombol Tolak
-                                    InkWell(
-                                      onTap: () => _tolakCuti(item),
-                                      borderRadius: BorderRadius.circular(20),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFE11D48), // Crimson red persis gambar
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        child: const Text(
-                                          'X Tolak',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-
-                                    // Tombol Detail
-                                    InkWell(
-                                      onTap: () => _lihatDetail(item),
-                                      borderRadius: BorderRadius.circular(20),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(20),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.05),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 1),
-                                            ),
-                                          ],
-                                        ),
-                                        child: const Text(
-                                          'Detail',
-                                          style: TextStyle(
-                                            color: Color(0xFF111827),
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                                    ],
                                   ],
                                 ),
-                              ],
-
-                              // 4. Kotak Alasan Penolakan Untuk Status 'Ditolak'
-                              if (status == 'ditolak' && alasanPenolakan != null && alasanPenolakan.isNotEmpty) ...[
-                                const SizedBox(height: 14),
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFCE7F3).withValues(alpha: 0.8), // Light pink box
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                     alasanPenolakan,
-                                     style: const TextStyle(
-                                       fontSize: 12,
-                                       fontWeight: FontWeight.bold,
-                                       color: Color(0xFFDC2626),
-                                       height: 1.25,
-                                     ),
-                                   ),
-                                 ),
-                               ],
-                             ],
-                           ),
-                         );
-                       },
-                     ),
-                   ],
-                 );
+                              );
+                            },
+                          ),
+                      ],
+                    );
                   },
                 ),
                 const SizedBox(height: 30),

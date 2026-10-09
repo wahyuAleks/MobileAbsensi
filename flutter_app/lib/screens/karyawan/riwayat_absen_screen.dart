@@ -11,7 +11,13 @@ import '../../core/app_events.dart';
 /// - Tab 1: Pengajuan Cuti (Ringkasan kuota, tombol ajukan cuti baru, filter status persetujuan, daftar pengajuan cuti)
 class RiwayatAbsenScreen extends StatefulWidget {
   final int initialTab;
-  const RiwayatAbsenScreen({super.key, this.initialTab = 0});
+  final VoidCallback? onBack;
+
+  const RiwayatAbsenScreen({
+    super.key,
+    this.initialTab = 0,
+    this.onBack,
+  });
 
   @override
   State<RiwayatAbsenScreen> createState() => _RiwayatAbsenScreenState();
@@ -419,24 +425,45 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Riwayat',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF111827),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        if (widget.onBack != null) ...[
+                          IconButton(
+                            tooltip: 'Kembali ke halaman sebelumnya',
+                            onPressed: widget.onBack,
+                            icon: const Icon(Icons.arrow_back_rounded),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                                minWidth: 40, minHeight: 40),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Riwayat',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF111827),
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Catatan presensi harian & permohonan cuti',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 12.5, color: Color(0xFF6B7280)),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Catatan presensi harian & permohonan cuti',
-                        style:
-                            TextStyle(fontSize: 12.5, color: Color(0xFF6B7280)),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   // Tombol Refresh Cepat
                   IconButton(

@@ -44,14 +44,10 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
   static const double _radiusCocokLokasiMeter = 500;
   static const double _akurasiGpsMaksimalMeter = 100;
 
-  String _jenisKegiatan = 'Penyemprotan Pestisida';
-  final List<String> _listJenisKegiatan = [
-    'Penyemprotan Pestisida',
-    'Survei dan Pemetaan',
-    'Pemeliharaan Drone',
-    'Penyebaran Pupuk',
-    'Operasional Lapangan',
-  ];
+  List<Map<String, dynamic>> _jenisKegiatanList = [];
+  int? _jenisKegiatanId;
+  bool _jenisKegiatanLoading = true;
+  String? _jenisKegiatanError;
 
   bool _submitting = false;
 
@@ -60,28 +56,75 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
     return id is int ? id : int.tryParse(id?.toString() ?? '');
   }
 
+  String get _jenisKegiatanTerpilih {
+    for (final item in _jenisKegiatanList) {
+      if (int.tryParse(item['id'].toString()) == _jenisKegiatanId) {
+        return item['nama'].toString();
+      }
+    }
+    return '';
+  }
+
   @override
   void initState() {
     super.initState();
     final draft = widget.draft;
-    if (draft == null) return;
+    if (draft != null) {
+      _tanggal = DateTime.tryParse(
+            (draft['tanggal_raw'] ?? draft['tanggal'])?.toString() ?? '',
+          ) ??
+          _tanggal;
+      _judulCtrl.text = draft['judul']?.toString() == 'Draft tanpa judul'
+          ? ''
+          : draft['judul']?.toString() ?? '';
+      _lokasiCtrl.text = draft['lokasi']?.toString() ?? '';
+      _unitDroneCtrl.text = draft['unit_drone']?.toString() ?? '';
+      _luasAreaCtrl.text = draft['luas_area']?.toString() ?? '';
+      _uraianCtrl.text =
+          (draft['uraian_pekerjaan'] ?? draft['isi_laporan'])?.toString() ?? '';
+      _hasilCtrl.text = draft['hasil']?.toString() ?? '';
+      _rencanaEsokCtrl.text = draft['rencana_esok']?.toString() ?? '';
+      _jenisKegiatanId = int.tryParse(
+        draft['jenis_kegiatan_id']?.toString() ?? '',
+      );
+      _dokumentasiPath = draft['lampiran']?.toString();
+    }
+    _muatJenisKegiatan();
+  }
 
-    _tanggal = DateTime.tryParse(
-          (draft['tanggal_raw'] ?? draft['tanggal'])?.toString() ?? '',
-        ) ??
-        _tanggal;
-    _judulCtrl.text = draft['judul']?.toString() == 'Draft tanpa judul'
-        ? ''
-        : draft['judul']?.toString() ?? '';
-    _lokasiCtrl.text = draft['lokasi']?.toString() ?? '';
-    _unitDroneCtrl.text = draft['unit_drone']?.toString() ?? '';
-    _luasAreaCtrl.text = draft['luas_area']?.toString() ?? '';
-    _uraianCtrl.text =
-        (draft['uraian_pekerjaan'] ?? draft['isi_laporan'])?.toString() ?? '';
-    _hasilCtrl.text = draft['hasil']?.toString() ?? '';
-    _rencanaEsokCtrl.text = draft['rencana_esok']?.toString() ?? '';
-    _jenisKegiatan = draft['jenis_kegiatan']?.toString() ?? _jenisKegiatan;
-    _dokumentasiPath = draft['lampiran']?.toString();
+  Future<void> _muatJenisKegiatan() async {
+    setState(() {
+      _jenisKegiatanLoading = true;
+      _jenisKegiatanError = null;
+    });
+    try {
+      final results = await ApiService.jenisKegiatanAktif();
+      if (!mounted) return;
+      final items = results
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+      final draftName = widget.draft?['jenis_kegiatan']?.toString();
+      var selectedId = _jenisKegiatanId;
+      if (!items.any((item) => int.tryParse(item['id'].toString()) == selectedId)) {
+        final matching = items.where((item) => item['nama'] == draftName);
+        selectedId = matching.isEmpty
+            ? (draftName == null && items.isNotEmpty
+                ? int.tryParse(items.first['id'].toString())
+                : null)
+            : int.tryParse(matching.first['id'].toString());
+      }
+      setState(() {
+        _jenisKegiatanList = items;
+        _jenisKegiatanId = selectedId;
+        _jenisKegiatanLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _jenisKegiatanLoading = false;
+        _jenisKegiatanError = e.toString();
+      });
+    }
   }
 
   @override
@@ -478,6 +521,9 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
       final displayTanggal = _formatTanggalIndo(_tanggal);
       final displayWaktu = DateFormat('HH.mm').format(DateTime.now());
       final data = _dataLaporan(tglFormatted);
+      if (_jenisKegiatanId == null) {
+        throw StateError('Pilih jenis kegiatan dari data master.');
+      }
       fotoBertag = await _siapkanFotoBertag();
 
       final draftId = _draftId;
@@ -488,6 +534,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
           judul: data['judul']!,
           isiLaporan: data['isi_laporan']!,
           jenisKegiatan: data['jenis_kegiatan'],
+          jenisKegiatanId: _jenisKegiatanId,
           lokasi: data['lokasi'],
           unitDrone: data['unit_drone'],
           luasArea: data['luas_area'],
@@ -502,6 +549,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
           judul: data['judul']!,
           isiLaporan: data['isi_laporan']!,
           jenisKegiatan: data['jenis_kegiatan'],
+          jenisKegiatanId: _jenisKegiatanId,
           lokasi: data['lokasi'],
           unitDrone: data['unit_drone'],
           luasArea: data['luas_area'],
@@ -552,7 +600,8 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
       'tanggal': tanggal,
       'judul': _judulCtrl.text.trim(),
       'isi_laporan': uraian,
-      'jenis_kegiatan': _jenisKegiatan,
+      'jenis_kegiatan': _jenisKegiatanTerpilih,
+      'jenis_kegiatan_id': _jenisKegiatanId?.toString() ?? '',
       'lokasi': _lokasiCtrl.text.trim(),
       'unit_drone': _unitDroneCtrl.text.trim(),
       'luas_area': _luasAreaCtrl.text.trim(),
@@ -575,6 +624,9 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
       }
       final tanggal = DateFormat('yyyy-MM-dd').format(_tanggal);
       final data = _dataLaporan(tanggal);
+      if (_jenisKegiatanId == null) {
+        throw StateError('Pilih jenis kegiatan dari data master.');
+      }
       final judul =
           data['judul']!.isEmpty ? 'Draft tanpa judul' : data['judul']!;
       final id = _draftId;
@@ -586,6 +638,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
           judul: judul,
           isiLaporan: data['isi_laporan']!,
           jenisKegiatan: data['jenis_kegiatan'],
+          jenisKegiatanId: _jenisKegiatanId,
           lokasi: data['lokasi'],
           unitDrone: data['unit_drone'],
           luasArea: data['luas_area'],
@@ -602,6 +655,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
           judul: judul,
           isiLaporan: data['isi_laporan']!,
           jenisKegiatan: data['jenis_kegiatan'],
+          jenisKegiatanId: _jenisKegiatanId,
           lokasi: data['lokasi'],
           unitDrone: data['unit_drone'],
           luasArea: data['luas_area'],
@@ -825,39 +879,53 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
                                 color: Color(0xFF374151)),
                           ),
                           const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _listJenisKegiatan.map((item) {
-                              final isSelected = _jenisKegiatan == item;
-                              return ChoiceChip(
-                                label: Text(item),
-                                selected: isSelected,
-                                selectedColor: AppConstants.primaryColor
-                                    .withValues(alpha: 0.15),
-                                backgroundColor: const Color(0xFFF3F4F6),
-                                labelStyle: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: isSelected
-                                      ? FontWeight.bold
-                                      : FontWeight.w500,
-                                  color: isSelected
-                                      ? AppConstants.primaryColor
-                                      : const Color(0xFF4B5563),
+                          if (_jenisKegiatanLoading)
+                            const LinearProgressIndicator()
+                          else if (_jenisKegiatanError != null)
+                            Row(
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    'Gagal memuat jenis kegiatan.',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
                                 ),
-                                side: BorderSide(
-                                  color: isSelected
-                                      ? AppConstants.primaryColor
-                                      : const Color(0xFFE5E7EB),
+                                TextButton(
+                                  onPressed: _muatJenisKegiatan,
+                                  child: const Text('Coba lagi'),
                                 ),
-                                onSelected: (sel) {
-                                  if (sel) {
-                                    setState(() => _jenisKegiatan = item);
-                                  }
-                                },
-                              );
-                            }).toList(),
-                          ),
+                              ],
+                            )
+                          else
+                            DropdownButtonFormField<int>(
+                              initialValue: _jenisKegiatanId,
+                              isExpanded: true,
+                              decoration: InputDecoration(
+                                hintText: _jenisKegiatanList.isEmpty
+                                    ? 'Belum ada jenis kegiatan aktif'
+                                    : 'Pilih jenis kegiatan',
+                                filled: true,
+                                fillColor: const Color(0xFFF9FAFB),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              items: _jenisKegiatanList.map((item) {
+                                final id = int.tryParse(item['id'].toString());
+                                if (id == null) return null;
+                                return DropdownMenuItem<int>(
+                                  value: id,
+                                  child: Text(item['nama'].toString()),
+                                );
+                              }).whereType<DropdownMenuItem<int>>().toList(),
+                              validator: (value) => value == null
+                                  ? 'Pilih jenis kegiatan'
+                                  : null,
+                              onChanged: _jenisKegiatanList.isEmpty
+                                  ? null
+                                  : (value) =>
+                                      setState(() => _jenisKegiatanId = value),
+                            ),
                           const SizedBox(height: 16),
 
                           // Lokasi / Area

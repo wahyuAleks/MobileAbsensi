@@ -8,10 +8,14 @@ import 'validasi_lokasi_screen.dart';
 
 class VerifikasiWajahScreen extends StatefulWidget {
   final bool isMasuk;
+  final int? jadwalId;
+  final String? lokasiNama;
 
   const VerifikasiWajahScreen({
     super.key,
     required this.isMasuk,
+    this.jadwalId,
+    this.lokasiNama,
   });
 
   @override
@@ -201,6 +205,8 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen> {
         MaterialPageRoute(
           builder: (_) => ValidasiLokasiScreen(
             isMasuk: widget.isMasuk,
+            jadwalId: widget.jadwalId,
+            lokasiNama: widget.lokasiNama,
             fotoWajah: _fotoWajah!,
             initialPosition: position,
           ),

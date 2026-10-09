@@ -6,7 +6,9 @@ import 'buat_laporan_screen.dart';
 import 'detail_laporan_screen.dart';
 
 class LaporanScreen extends StatefulWidget {
-  const LaporanScreen({super.key});
+  final VoidCallback? onBack;
+
+  const LaporanScreen({super.key, this.onBack});
 
   @override
   State<LaporanScreen> createState() => _LaporanScreenState();
@@ -292,14 +294,15 @@ class _LaporanScreenState extends State<LaporanScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                 child: Row(
                   children: [
-                    if (Navigator.canPop(context)) ...[
+                    if (widget.onBack != null || Navigator.canPop(context)) ...[
                       IconButton(
                         icon: const Icon(Icons.arrow_back_ios_new_rounded,
                             size: 20, color: Color(0xFF111827)),
                         padding: EdgeInsets.zero,
                         constraints:
                             const BoxConstraints(minWidth: 32, minHeight: 32),
-                        onPressed: () => Navigator.pop(context),
+                        onPressed:
+                            widget.onBack ?? () => Navigator.pop(context),
                       ),
                       const SizedBox(width: 8),
                     ],

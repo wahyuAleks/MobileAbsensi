@@ -11,7 +11,9 @@ import '../../core/notifikasi_service.dart';
 import '../../core/app_events.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final VoidCallback? onBack;
+
+  const ProfileScreen({super.key, this.onBack});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -60,7 +62,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Keluar dari Akun'),
-        content: const Text('Apakah Anda yakin ingin keluar dari aplikasi Absensiku?'),
+        content: const Text(
+            'Apakah Anda yakin ingin keluar dari aplikasi Absensiku?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -70,7 +73,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Keluar'),
@@ -118,15 +122,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // 1. Judul Profil di Atas
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(20, 16, 20, 12),
-                        child: Text(
-                          'Profil',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF111827),
-                          ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                        child: Row(
+                          children: [
+                            if (widget.onBack != null ||
+                                Navigator.canPop(context)) ...[
+                              IconButton(
+                                tooltip: 'Kembali ke halaman sebelumnya',
+                                onPressed: widget.onBack ??
+                                    () => Navigator.of(context).maybePop(),
+                                icon: const Icon(Icons.arrow_back_rounded),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                    minWidth: 40, minHeight: 40),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            const Text(
+                              'Profil',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF111827),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
 
@@ -140,8 +161,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             // Avatar Squircle dengan Badge Centang Hijau
                             GestureDetector(
                               onTap: () async {
-                                final sukses = await Navigator.of(context).push<bool>(
-                                  MaterialPageRoute(builder: (_) => EditProfileScreen(user: _user ?? {})),
+                                final sukses =
+                                    await Navigator.of(context).push<bool>(
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          EditProfileScreen(user: _user ?? {})),
                                 );
                                 if (sukses == true) _muat();
                               },
@@ -163,7 +187,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                               width: 76,
                                               height: 76,
                                               fit: BoxFit.cover,
-                                              errorBuilder: (_, __, ___) => Container(
+                                              errorBuilder: (_, __, ___) =>
+                                                  Container(
                                                 color: const Color(0xFFCBD5E1),
                                                 alignment: Alignment.center,
                                                 child: Text(
@@ -199,7 +224,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       decoration: BoxDecoration(
                                         color: const Color(0xFF22C55E),
                                         shape: BoxShape.circle,
-                                        border: Border.all(color: primaryColor, width: 2),
+                                        border: Border.all(
+                                            color: primaryColor, width: 2),
                                       ),
                                       child: const Icon(
                                         Icons.check,
@@ -244,7 +270,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
+                            border: Border.all(
+                                color: const Color(0xFFE5E7EB), width: 1.2),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.02),
@@ -260,15 +287,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 children: [
                                   Expanded(child: _buildInfoBox('NIP', nip)),
                                   const SizedBox(width: 12),
-                                  Expanded(child: _buildInfoBox('Divisi', divisi)),
+                                  Expanded(
+                                      child: _buildInfoBox('Divisi', divisi)),
                                 ],
                               ),
                               const SizedBox(height: 12),
                               Row(
                                 children: [
-                                  Expanded(child: _buildInfoBox('Email', email)),
+                                  Expanded(
+                                      child: _buildInfoBox('Email', email)),
                                   const SizedBox(width: 12),
-                                  Expanded(child: _buildInfoBox('Status', status)),
+                                  Expanded(
+                                      child: _buildInfoBox('Status', status)),
                                 ],
                               ),
                             ],
@@ -283,7 +313,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
+                            border: Border.all(
+                                color: const Color(0xFFE5E7EB), width: 1.2),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.02),
@@ -300,13 +331,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 iconColor: const Color(0xFF0284C7),
                                 title: 'Edit Profil',
                                 onTap: () async {
-                                  final sukses = await Navigator.of(context).push<bool>(
-                                    MaterialPageRoute(builder: (_) => EditProfileScreen(user: _user ?? {})),
+                                  final sukses =
+                                      await Navigator.of(context).push<bool>(
+                                    MaterialPageRoute(
+                                        builder: (_) => EditProfileScreen(
+                                            user: _user ?? {})),
                                   );
                                   if (sukses == true) _muat();
                                 },
                               ),
-                              const Divider(height: 1, indent: 64, endIndent: 16, color: Color(0xFFF3F4F6)),
+                              const Divider(
+                                  height: 1,
+                                  indent: 64,
+                                  endIndent: 16,
+                                  color: Color(0xFFF3F4F6)),
                               _buildMenuItem(
                                 icon: Icons.shield_outlined,
                                 iconBg: const Color(0xFFDCFCE7),
@@ -314,11 +352,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 title: 'Ubah Password',
                                 onTap: () {
                                   Navigator.of(context).push(
-                                    MaterialPageRoute(builder: (_) => const UbahPasswordScreen()),
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const UbahPasswordScreen()),
                                   );
                                 },
                               ),
-                              const Divider(height: 1, indent: 64, endIndent: 16, color: Color(0xFFF3F4F6)),
+                              const Divider(
+                                  height: 1,
+                                  indent: 64,
+                                  endIndent: 16,
+                                  color: Color(0xFFF3F4F6)),
                               _buildMenuItem(
                                 icon: Icons.notifications,
                                 iconBg: const Color(0xFFFEF3C7),
@@ -326,12 +370,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 title: 'Notifikasi',
                                 onTap: _dialogNotifikasi,
                                 trailing: ValueListenableBuilder<int>(
-                                  valueListenable: NotifikasiService.unreadCountNotifier,
+                                  valueListenable:
+                                      NotifikasiService.unreadCountNotifier,
                                   builder: (context, unreadCount, _) {
-                                    if (unreadCount <= 0) return const SizedBox.shrink();
+                                    if (unreadCount <= 0)
+                                      return const SizedBox.shrink();
                                     return Container(
                                       margin: const EdgeInsets.only(right: 8),
-                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 7, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFEF4444),
                                         borderRadius: BorderRadius.circular(10),
@@ -348,7 +395,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   },
                                 ),
                               ),
-                              const Divider(height: 1, indent: 64, endIndent: 16, color: Color(0xFFF3F4F6)),
+                              const Divider(
+                                  height: 1,
+                                  indent: 64,
+                                  endIndent: 16,
+                                  color: Color(0xFFF3F4F6)),
                               _buildMenuItem(
                                 icon: Icons.description,
                                 iconBg: const Color(0xFFEDE9FE),
@@ -356,7 +407,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 title: 'Kebijakan Privasi',
                                 onTap: () {
                                   Navigator.of(context).push(
-                                    MaterialPageRoute(builder: (_) => const KebijakanPrivasiScreen()),
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const KebijakanPrivasiScreen()),
                                   );
                                 },
                               ),
@@ -373,7 +426,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
+                            border: Border.all(
+                                color: const Color(0xFFE5E7EB), width: 1.2),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.02),
@@ -389,7 +443,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               borderRadius: BorderRadius.circular(16),
                               onTap: _logout,
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 14),
                                 child: Row(
                                   children: [
                                     Container(

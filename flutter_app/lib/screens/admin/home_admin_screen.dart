@@ -4,6 +4,7 @@ import '../../core/api_service.dart';
 
 class HomeAdminScreen extends StatefulWidget {
   final VoidCallback onOpenDrawer;
+  final VoidCallback? onBack;
   final VoidCallback onOpenNotifikasi;
   final VoidCallback onBukaKaryawan;
   final VoidCallback onBukaRekapAbsensi;
@@ -13,6 +14,7 @@ class HomeAdminScreen extends StatefulWidget {
   const HomeAdminScreen({
     super.key,
     required this.onOpenDrawer,
+    this.onBack,
     required this.onOpenNotifikasi,
     required this.onBukaKaryawan,
     required this.onBukaRekapAbsensi,
@@ -49,7 +51,8 @@ class _HomeAdminScreenState extends State<HomeAdminScreen> {
       }
 
       // 2. Data Cuti Menunggu
-      final cutiMenunggu = await ApiService.daftarPengajuanCuti(status: 'menunggu');
+      final cutiMenunggu =
+          await ApiService.daftarPengajuanCuti(status: 'menunggu');
       if (mounted) {
         setState(() => _pengajuanCuti = cutiMenunggu.length);
       }
@@ -76,7 +79,8 @@ class _HomeAdminScreenState extends State<HomeAdminScreen> {
             _absensiList = List<Map<String, dynamic>>.from(rekap);
             _hadirHariIni = rekap.length;
             _terlambat = telat;
-            _belumAbsen = (_totalKaryawan - _hadirHariIni).clamp(0, _totalKaryawan);
+            _belumAbsen =
+                (_totalKaryawan - _hadirHariIni).clamp(0, _totalKaryawan);
           }
         });
       }
@@ -87,10 +91,29 @@ class _HomeAdminScreenState extends State<HomeAdminScreen> {
 
   String _formatTanggalHariIni() {
     final now = DateTime.now();
-    const hariList = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const hariList = [
+      'Minggu',
+      'Senin',
+      'Selasa',
+      'Rabu',
+      'Kamis',
+      'Jumat',
+      'Sabtu'
+    ];
     const bulanList = [
-      '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      '',
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember'
     ];
     return '${hariList[now.weekday % 7]}, ${now.day} ${bulanList[now.month]} ${now.year}';
   }
@@ -125,33 +148,20 @@ class _HomeAdminScreenState extends State<HomeAdminScreen> {
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Hamburger Button + Title Dashboard
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.menu_rounded,
-                              size: 26,
-                              color: Color(0xFF111827),
-                            ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: widget.onOpenDrawer,
-                          ),
-                          const SizedBox(width: 14),
-                          const Text(
-                            'Dashboard',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF111827),
-                            ),
-                          ),
-                        ],
+                      IconButton(
+                        icon: const Icon(
+                          Icons.menu_rounded,
+                          size: 26,
+                          color: Color(0xFF111827),
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: widget.onOpenDrawer,
                       ),
 
                       // Bell Notifikasi & Avatar "SA"
@@ -191,7 +201,8 @@ class _HomeAdminScreenState extends State<HomeAdminScreen> {
                               width: 36,
                               height: 36,
                               decoration: const BoxDecoration(
-                                color: Color(0xFF488286), // Teal / Dark Cyan persis gambar
+                                color: Color(
+                                    0xFF488286), // Teal / Dark Cyan persis gambar
                                 shape: BoxShape.circle,
                               ),
                               alignment: Alignment.center,
@@ -210,6 +221,30 @@ class _HomeAdminScreenState extends State<HomeAdminScreen> {
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    if (widget.onBack != null) ...[
+                      IconButton(
+                        tooltip: 'Kembali ke halaman sebelumnya',
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 40, minHeight: 40),
+                        onPressed: widget.onBack,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    const Text(
+                      'Dashboard',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 18),
 
@@ -334,7 +369,8 @@ class _HomeAdminScreenState extends State<HomeAdminScreen> {
                       onTap: widget.onBukaRekapAbsensi,
                       borderRadius: BorderRadius.circular(6),
                       child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                         child: Row(
                           children: [
                             Text(
@@ -419,12 +455,16 @@ class _HomeAdminScreenState extends State<HomeAdminScreen> {
                       if (_absensiList.isNotEmpty)
                         ..._absensiList.take(3).map((item) {
                           final user = item['User'] ?? {};
-                          final nama = (user['nama'] ?? 'Ahmad Fauzi').toString();
-                          final jabatan = (user['jabatan'] ?? 'Teknisi Drone').toString();
-                          final jamMasuk = (item['jam_masuk'] ?? '07:58').toString();
-                          final status = (item['status'] ?? '').toString().toLowerCase();
-                          final isTerlambat =
-                              status.contains('terlambat') || status.contains('telat');
+                          final nama =
+                              (user['nama'] ?? 'Ahmad Fauzi').toString();
+                          final jabatan =
+                              (user['jabatan'] ?? 'Teknisi Drone').toString();
+                          final jamMasuk =
+                              (item['jam_masuk'] ?? '07:58').toString();
+                          final status =
+                              (item['status'] ?? '').toString().toLowerCase();
+                          final isTerlambat = status.contains('terlambat') ||
+                              status.contains('telat');
 
                           return _buildTableRow(
                             initials: _getInitials(nama),
@@ -557,7 +597,8 @@ class _HomeAdminScreenState extends State<HomeAdminScreen> {
               children: [
                 CircleAvatar(
                   radius: 17,
-                  backgroundColor: const Color(0xFF388E87), // Hijau toska persis AF
+                  backgroundColor:
+                      const Color(0xFF388E87), // Hijau toska persis AF
                   child: Text(
                     initials,
                     style: const TextStyle(
@@ -620,7 +661,9 @@ class _HomeAdminScreenState extends State<HomeAdminScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isTerlambat ? const Color(0xFFFEE2E2) : const Color(0xFFD1F2D9),
+                  color: isTerlambat
+                      ? const Color(0xFFFEE2E2)
+                      : const Color(0xFFD1F2D9),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -628,7 +671,9 @@ class _HomeAdminScreenState extends State<HomeAdminScreen> {
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.bold,
-                    color: isTerlambat ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+                    color: isTerlambat
+                        ? const Color(0xFFDC2626)
+                        : const Color(0xFF16A34A),
                   ),
                 ),
               ),

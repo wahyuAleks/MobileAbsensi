@@ -6,6 +6,7 @@ import 'components/notifikasi_sheet.dart';
 class RekapAbsensiScreen extends StatefulWidget {
   final bool showAppBar;
   final VoidCallback? onOpenDrawer;
+  final VoidCallback? onBack;
   final VoidCallback? onOpenNotifikasi;
   final VoidCallback? onBukaKaryawan;
   final VoidCallback? onBukaPersetujuanCuti;
@@ -15,6 +16,7 @@ class RekapAbsensiScreen extends StatefulWidget {
     super.key,
     this.showAppBar = false,
     this.onOpenDrawer,
+    this.onBack,
     this.onOpenNotifikasi,
     this.onBukaKaryawan,
     this.onBukaPersetujuanCuti,
@@ -160,13 +162,15 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Filter Karyawan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: const Text('Filter Karyawan',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         content: TextField(
           controller: ctrl,
           decoration: const InputDecoration(
             hintText: 'Ketik nama karyawan...',
             prefixIcon: Icon(Icons.search),
-            border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(12))),
           ),
         ),
         actions: [
@@ -175,13 +179,15 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
               setState(() => _searchFilter = '');
               Navigator.pop(ctx);
             },
-            child: const Text('Reset', style: TextStyle(color: Color(0xFF6B7280))),
+            child:
+                const Text('Reset', style: TextStyle(color: Color(0xFF6B7280))),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF4F5BA8),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () {
               setState(() => _searchFilter = ctrl.text.trim().toLowerCase());
@@ -220,33 +226,20 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Hamburger + Judul Rekap Absensi
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.menu_rounded,
-                              size: 26,
-                              color: Color(0xFF111827),
-                            ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: widget.onOpenDrawer,
-                          ),
-                          const SizedBox(width: 14),
-                          const Text(
-                            'Rekap Absensi',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF111827),
-                            ),
-                          ),
-                        ],
+                      IconButton(
+                        icon: const Icon(
+                          Icons.menu_rounded,
+                          size: 26,
+                          color: Color(0xFF111827),
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: widget.onOpenDrawer,
                       ),
 
                       // Bell Notifikasi & Avatar "SA"
@@ -269,12 +262,15 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
                                 top: -2,
                                 right: -2,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 4, vertical: 1),
+                                  constraints: const BoxConstraints(
+                                      minWidth: 16, minHeight: 16),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFEF4444),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.white, width: 1.5),
+                                    border: Border.all(
+                                        color: Colors.white, width: 1.5),
                                   ),
                                   alignment: Alignment.center,
                                   child: const Text(
@@ -316,6 +312,30 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    if (widget.onBack != null) ...[
+                      IconButton(
+                        tooltip: 'Kembali ke halaman sebelumnya',
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 40, minHeight: 40),
+                        onPressed: widget.onBack,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    const Text(
+                      'Rekap Absensi',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 18),
 
@@ -376,7 +396,8 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
                 // Kartu 1: Rata-rata Kehadiran (87% - Centang Hijau)
                 Container(
                   height: 80,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF3F4F6),
                     borderRadius: BorderRadius.circular(14),
@@ -436,7 +457,8 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
                 // Kartu 2: Rata-rata Kehadiran (4 - Silang Merah)
                 Container(
                   height: 80,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF3F4F6),
                     borderRadius: BorderRadius.circular(14),
@@ -506,7 +528,8 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
                         final user = r['User'] ?? {};
                         final uid = user['id'] ?? r['user_id'] ?? 1;
                         final rawNama = (user['nama'] ?? 'Karyawan').toString();
-                        final status = (r['status'] ?? '').toString().toLowerCase();
+                        final status =
+                            (r['status'] ?? '').toString().toLowerCase();
 
                         if (!grouped.containsKey(uid)) {
                           final parts = rawNama.trim().split(RegExp(r'\s+'));
@@ -521,7 +544,9 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
                             'id': uid,
                             'nama': formattedNama,
                             'initials': initials,
-                            'avatarColor': uid.isEven ? const Color(0xFF385C83) : const Color(0xFF2F6B64),
+                            'avatarColor': uid.isEven
+                                ? const Color(0xFF385C83)
+                                : const Color(0xFF2F6B64),
                             'hadir': 0,
                             'terlambat': 0,
                             'tidak_hadir': 0,
@@ -529,12 +554,17 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
                         }
 
                         if (status.contains('terlambat') || status == 'telat') {
-                          grouped[uid]!['terlambat'] = (grouped[uid]!['terlambat'] as int) + 1;
-                          grouped[uid]!['hadir'] = (grouped[uid]!['hadir'] as int) + 1;
-                        } else if (status.contains('hadir') || status.contains('tepat')) {
-                          grouped[uid]!['hadir'] = (grouped[uid]!['hadir'] as int) + 1;
+                          grouped[uid]!['terlambat'] =
+                              (grouped[uid]!['terlambat'] as int) + 1;
+                          grouped[uid]!['hadir'] =
+                              (grouped[uid]!['hadir'] as int) + 1;
+                        } else if (status.contains('hadir') ||
+                            status.contains('tepat')) {
+                          grouped[uid]!['hadir'] =
+                              (grouped[uid]!['hadir'] as int) + 1;
                         } else {
-                          grouped[uid]!['tidak_hadir'] = (grouped[uid]!['tidak_hadir'] as int) + 1;
+                          grouped[uid]!['tidak_hadir'] =
+                              (grouped[uid]!['tidak_hadir'] as int) + 1;
                         }
                       }
                       items = grouped.values.toList();
@@ -616,7 +646,10 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
                             ],
                           ),
                           const SizedBox(height: 10),
-                          const Divider(height: 1, thickness: 1, color: Color(0xFFD1D5DB)),
+                          const Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: Color(0xFFD1D5DB)),
                           const SizedBox(height: 16),
 
                           // Daftar Baris Rekap Absensi
@@ -626,7 +659,8 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
                               child: Center(
                                 child: Text(
                                   'Tidak ada data rekap absensi',
-                                  style: TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+                                  style: TextStyle(
+                                      color: Color(0xFF6B7280), fontSize: 13),
                                 ),
                               ),
                             )
@@ -635,12 +669,14 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               itemCount: filtered.length,
-                              separatorBuilder: (_, __) => const SizedBox(height: 18),
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 18),
                               itemBuilder: (context, i) {
                                 final item = filtered[i];
                                 final nama = item['nama'] as String;
                                 final initials = item['initials'] as String;
-                                final avatarColor = item['avatarColor'] as Color;
+                                final avatarColor =
+                                    item['avatarColor'] as Color;
                                 final hadir = item['hadir'] ?? 0;
                                 final terlambat = item['terlambat'] ?? 0;
                                 final tidakHadir = item['tidak_hadir'] ?? 0;
@@ -652,7 +688,8 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
                                     Expanded(
                                       flex: 4,
                                       child: Row(
-                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
                                         children: [
                                           CircleAvatar(
                                             radius: 16,

@@ -1,6 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
 const User = require('./User');
+const JenisKegiatan = require('./JenisKegiatan');
 
 const Laporan = sequelize.define('Laporan', {
   id: {
@@ -15,6 +16,10 @@ const Laporan = sequelize.define('Laporan', {
   tanggal: {
     type: DataTypes.DATEONLY,
     allowNull: false,
+  },
+  jenis_kegiatan_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
   },
   judul: {
     type: DataTypes.STRING,
@@ -43,5 +48,15 @@ const Laporan = sequelize.define('Laporan', {
 
 Laporan.belongsTo(User, { foreignKey: 'user_id' });
 User.hasMany(Laporan, { foreignKey: 'user_id' });
+Laporan.belongsTo(JenisKegiatan, {
+  as: 'jenisKegiatan',
+  foreignKey: 'jenis_kegiatan_id',
+  onDelete: 'SET NULL',
+});
+JenisKegiatan.hasMany(Laporan, {
+  as: 'laporan',
+  foreignKey: 'jenis_kegiatan_id',
+  onDelete: 'SET NULL',
+});
 
 module.exports = Laporan;
