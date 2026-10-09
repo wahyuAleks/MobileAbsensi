@@ -1,5 +1,6 @@
 const Laporan = require('../models/Laporan');
 const User = require('../models/User');
+const { Op } = require('sequelize');
 
 // FORM LAPORAN -> SUBMIT
 exports.submitLaporan = async (req, res) => {
@@ -61,7 +62,48 @@ exports.laporanSaya = async (req, res) => {
 // REKAP LAPORAN untuk admin
 exports.rekapLaporan = async (req, res) => {
   try {
+    const {
+      tanggal,
+      tanggal_start: tanggalStart,
+      tanggal_end: tanggalEnd,
+      user_id: userId,
+    } = req.query;
+    const where = {};
+
+    if (userId !== undefined) {
+      const parsedUserId = Number(userId);
+      if (!Number.isSafeInteger(parsedUserId) || parsedUserId < 1) {
+        return res.status(400).json({ message: 'Filter karyawan tidak valid' });
+      }
+      where.user_id = parsedUserId;
+    }
+
+    if (tanggalStart || tanggalEnd) {
+      if (!tanggalStart || !tanggalEnd) {
+        return res.status(400).json({
+          message: 'Tanggal mulai dan tanggal akhir harus diisi bersama',
+        });
+      }
+      if (!isValidDate(tanggalStart) || !isValidDate(tanggalEnd)) {
+        return res.status(400).json({
+          message: 'Format tanggal harus YYYY-MM-DD',
+        });
+      }
+      if (tanggalStart > tanggalEnd) {
+        return res.status(400).json({
+          message: 'Tanggal mulai tidak boleh melewati tanggal akhir',
+        });
+      }
+      where.tanggal = { [Op.between]: [tanggalStart, tanggalEnd] };
+    } else if (tanggal) {
+      if (!isValidDate(tanggal)) {
+        return res.status(400).json({ message: 'Format tanggal harus YYYY-MM-DD' });
+      }
+      where.tanggal = tanggal;
+    }
+
     const data = await Laporan.findAll({
+      where,
       include: [{ model: User, attributes: ['id', 'nama', 'jabatan'] }],
       order: [['tanggal', 'DESC']],
     });
@@ -70,3 +112,11 @@ exports.rekapLaporan = async (req, res) => {
     res.status(500).json({ message: 'Terjadi kesalahan server', error: err.message });
   }
 };
+
+function isValidDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}

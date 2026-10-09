@@ -6,9 +6,6 @@ import 'package:intl/intl.dart';
 
 import '../core/api_service.dart';
 
-/// Mode filter untuk tabel rekap
-enum FilterMode { harian, mingguan, bulanan }
-
 class RekapDataScreen extends StatefulWidget {
   final bool showAppBar;
   final bool embedded;
@@ -36,12 +33,11 @@ class _RekapDataScreenState extends State<RekapDataScreen> {
   String? _chartError;
 
   // ───── Tabel filter state ─────
-  FilterMode _filterMode = FilterMode.harian;
-  DateTime _selectedDate = DateTime.now();
-  int _selectedWeekYear = DateTime.now().year;
-  late int _selectedWeek;
-  int _selectedMonth = DateTime.now().month;
-  int _selectedMonthYear = DateTime.now().year;
+  late DateTimeRange _selectedDateRange;
+  List<Map<String, dynamic>> _karyawan = [];
+  int _selectedKaryawanId = -1;
+  bool _karyawanLoading = true;
+  String? _karyawanError;
 
   List<Map<String, dynamic>> _tabelData = [];
   bool _tabelLoading = false;
@@ -50,18 +46,38 @@ class _RekapDataScreenState extends State<RekapDataScreen> {
   // ───── Tooltip chart ─────
   int _touchedIndex = -1;
 
-  static int _isoWeek(DateTime d) {
-    final jan4 = DateTime(d.year, 1, 4);
-    final startWeek1 = jan4.subtract(Duration(days: (jan4.weekday - 1) % 7));
-    return ((d.difference(startWeek1).inDays) / 7).floor() + 1;
-  }
-
   @override
   void initState() {
     super.initState();
-    _selectedWeek = _isoWeek(DateTime.now());
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    _selectedDateRange = DateTimeRange(start: todayDate, end: todayDate);
     _muatChart();
+    _muatDaftarKaryawan();
     _muatTabel();
+  }
+
+  Future<void> _muatDaftarKaryawan() async {
+    setState(() {
+      _karyawanLoading = true;
+      _karyawanError = null;
+    });
+    try {
+      final raw = await ApiService.daftarKaryawan();
+      if (!mounted) return;
+      setState(() {
+        _karyawan = raw.whereType<Map>().map((item) {
+          return Map<String, dynamic>.from(item);
+        }).toList();
+        _karyawanLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _karyawanError = 'Gagal memuat daftar karyawan: $e';
+        _karyawanLoading = false;
+      });
+    }
   }
 
   // ───── MUAT DATA CHART ─────
@@ -109,20 +125,12 @@ class _RekapDataScreenState extends State<RekapDataScreen> {
       _tabelError = null;
     });
     try {
-      List<dynamic> raw;
-      if (_filterMode == FilterMode.harian) {
-        raw = await ApiService.rekapLaporanFiltered(
-          tanggal: DateFormat('yyyy-MM-dd').format(_selectedDate),
-        );
-      } else if (_filterMode == FilterMode.mingguan) {
-        final week =
-            '$_selectedWeekYear-W${_selectedWeek.toString().padLeft(2, '0')}';
-        raw = await ApiService.rekapLaporanFiltered(minggu: week);
-      } else {
-        final bulan =
-            '$_selectedMonthYear-${_selectedMonth.toString().padLeft(2, '0')}';
-        raw = await ApiService.rekapLaporanFiltered(bulan: bulan);
-      }
+      final raw = await ApiService.rekapLaporanFiltered(
+        tanggalStart: DateFormat('yyyy-MM-dd').format(_selectedDateRange.start),
+        tanggalEnd: DateFormat('yyyy-MM-dd').format(_selectedDateRange.end),
+        userId:
+            _selectedKaryawanId == -1 ? null : _selectedKaryawanId.toString(),
+      );
       if (mounted) {
         setState(() {
           _tabelData = List<Map<String, dynamic>>.from(raw);
@@ -187,127 +195,177 @@ class _RekapDataScreenState extends State<RekapDataScreen> {
     return colors[name.hashCode.abs() % colors.length];
   }
 
-  // ───── FILTER PERIOD NAVIGATOR ─────
-  Widget _buildPeriodNavigator() {
-    String label = '';
-    VoidCallback onPrev;
-    VoidCallback onNext;
+  Future<void> _pilihTanggal(bool pilihMulai) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate:
+          pilihMulai ? _selectedDateRange.start : _selectedDateRange.end,
+      firstDate: pilihMulai ? DateTime(2000) : _selectedDateRange.start,
+      lastDate: DateTime(2100),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (pilihMulai) {
+        final end = _selectedDateRange.end.isBefore(picked)
+            ? picked
+            : _selectedDateRange.end;
+        _selectedDateRange = DateTimeRange(start: picked, end: end);
+      } else {
+        _selectedDateRange = DateTimeRange(
+          start: _selectedDateRange.start,
+          end: picked,
+        );
+      }
+    });
+    await _muatTabel();
+  }
 
-    if (_filterMode == FilterMode.harian) {
-      label = DateFormat('EEEE, d MMMM yyyy').format(_selectedDate);
-      onPrev = () {
-        setState(() =>
-            _selectedDate = _selectedDate.subtract(const Duration(days: 1)));
-        _muatTabel();
-      };
-      onNext = () {
-        setState(
-            () => _selectedDate = _selectedDate.add(const Duration(days: 1)));
-        _muatTabel();
-      };
-    } else if (_filterMode == FilterMode.mingguan) {
-      final jan4 = DateTime(_selectedWeekYear, 1, 4);
-      final startW1 = jan4.subtract(Duration(days: (jan4.weekday - 1) % 7));
-      final wStart = startW1.add(Duration(days: (_selectedWeek - 1) * 7));
-      final wEnd = wStart.add(const Duration(days: 6));
-      label =
-          'Minggu ke-$_selectedWeek  (${DateFormat('d MMM').format(wStart)} – ${DateFormat('d MMM yyyy').format(wEnd)})';
-      onPrev = () {
-        setState(() {
-          if (_selectedWeek > 1) {
-            _selectedWeek--;
-          } else {
-            _selectedWeekYear--;
-            _selectedWeek = 52;
-          }
-        });
-        _muatTabel();
-      };
-      onNext = () {
-        setState(() {
-          if (_selectedWeek < 52) {
-            _selectedWeek++;
-          } else {
-            _selectedWeekYear++;
-            _selectedWeek = 1;
-          }
-        });
-        _muatTabel();
-      };
-    } else {
-      const bulanList = [
-        '',
-        'Januari',
-        'Februari',
-        'Maret',
-        'April',
-        'Mei',
-        'Juni',
-        'Juli',
-        'Agustus',
-        'September',
-        'Oktober',
-        'November',
-        'Desember',
-      ];
-      label = '${bulanList[_selectedMonth]} $_selectedMonthYear';
-      onPrev = () {
-        setState(() {
-          if (_selectedMonth > 1) {
-            _selectedMonth--;
-          } else {
-            _selectedMonth = 12;
-            _selectedMonthYear--;
-          }
-        });
-        _muatTabel();
-      };
-      onNext = () {
-        setState(() {
-          if (_selectedMonth < 12) {
-            _selectedMonth++;
-          } else {
-            _selectedMonth = 1;
-            _selectedMonthYear++;
-          }
-        });
-        _muatTabel();
-      };
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(12),
+  Widget _buildDateField({
+    required DateTime date,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFD1D5DB)),
+        ),
+        alignment: Alignment.centerLeft,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                DateFormat('MM/dd/yyyy').format(date),
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF111827),
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.calendar_today_rounded,
+              size: 18,
+              color: Color(0xFF64748B),
+            ),
+          ],
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left_rounded, size: 22),
-            onPressed: onPrev,
-            visualDensity: VisualDensity.compact,
-            color: const Color(0xFF374151),
+    );
+  }
+
+  Widget _buildDateFields() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildDateField(
+            date: _selectedDateRange.start,
+            onTap: () => _pilihTanggal(true),
           ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-              color: Color(0xFF111827),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildDateField(
+            date: _selectedDateRange.end,
+            onTap: () => _pilihTanggal(false),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmployeeFilter() {
+    if (_karyawanLoading) {
+      return const SizedBox(
+        height: 48,
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    if (_karyawanError != null) {
+      return Row(
+        children: [
+          Expanded(
+            child: Text(
+              _karyawanError!,
+              style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 12),
             ),
           ),
-          const SizedBox(width: 4),
           IconButton(
-            icon: const Icon(Icons.chevron_right_rounded, size: 22),
-            onPressed: onNext,
-            visualDensity: VisualDensity.compact,
-            color: const Color(0xFF374151),
+            onPressed: _muatDaftarKaryawan,
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Muat ulang karyawan',
           ),
         ],
+      );
+    }
+
+    return DropdownButtonFormField<int>(
+      initialValue: _selectedKaryawanId,
+      isExpanded: true,
+      decoration: InputDecoration(
+        prefixIcon: const Icon(Icons.person_search_rounded),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+        ),
       ),
+      items: [
+        const DropdownMenuItem<int>(
+          value: -1,
+          child: Text('Semua karyawan', overflow: TextOverflow.ellipsis),
+        ),
+        ..._karyawan.map((karyawan) {
+          final id = int.tryParse(karyawan['id'].toString());
+          if (id == null) return null;
+          return DropdownMenuItem<int>(
+            value: id,
+            child: Text(
+              (karyawan['nama'] ?? 'Karyawan').toString(),
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
+        }).whereType<DropdownMenuItem<int>>(),
+      ],
+      onChanged: (id) {
+        if (id == null) return;
+        setState(() => _selectedKaryawanId = id);
+        _muatTabel();
+      },
+    );
+  }
+
+  Widget _buildFilters() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 560) {
+          return Column(
+            children: [
+              _buildDateFields(),
+              const SizedBox(height: 12),
+              _buildEmployeeFilter(),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(flex: 5, child: _buildDateFields()),
+            const SizedBox(width: 12),
+            Expanded(flex: 4, child: _buildEmployeeFilter()),
+          ],
+        );
+      },
     );
   }
 
@@ -890,21 +948,8 @@ class _RekapDataScreenState extends State<RekapDataScreen> {
                   style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
                 ),
                 const SizedBox(height: 16),
-
-                // Filter mode chips
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    _filterChip('Harian', FilterMode.harian),
-                    _filterChip('Mingguan', FilterMode.mingguan),
-                    _filterChip('Bulanan', FilterMode.bulanan),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                _buildPeriodNavigator(),
+                _buildFilters(),
                 const SizedBox(height: 16),
-
                 _buildTabel(),
               ],
             ),
@@ -917,7 +962,7 @@ class _RekapDataScreenState extends State<RekapDataScreen> {
     if (widget.embedded) return content;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: const Color(0xFFF5F7FB),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
@@ -926,32 +971,6 @@ class _RekapDataScreenState extends State<RekapDataScreen> {
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             child: content,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _filterChip(String label, FilterMode mode) {
-    final isActive = _filterMode == mode;
-    return GestureDetector(
-      onTap: () {
-        setState(() => _filterMode = mode);
-        _muatTabel();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF488286) : const Color(0xFFF3F4F6),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: isActive ? Colors.white : const Color(0xFF6B7280),
           ),
         ),
       ),

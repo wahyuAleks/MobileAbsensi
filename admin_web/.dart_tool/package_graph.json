@@ -14,6 +14,7 @@
         "intl",
         "provider",
         "shared_preferences",
+        "socket_io_client",
         "url_launcher"
       ],
       "devDependencies": [
@@ -44,6 +45,16 @@
         "stream_channel",
         "test_api",
         "vector_math"
+      ]
+    },
+    {
+      "name": "socket_io_client",
+      "version": "3.1.6",
+      "dependencies": [
+        "logging",
+        "socket_io_common",
+        "web",
+        "web_socket"
       ]
     },
     {
@@ -216,6 +227,30 @@
       ]
     },
     {
+      "name": "web_socket",
+      "version": "1.0.1",
+      "dependencies": [
+        "web"
+      ]
+    },
+    {
+      "name": "web",
+      "version": "1.1.1",
+      "dependencies": []
+    },
+    {
+      "name": "socket_io_common",
+      "version": "3.1.1",
+      "dependencies": [
+        "logging"
+      ]
+    },
+    {
+      "name": "logging",
+      "version": "1.3.0",
+      "dependencies": []
+    },
+    {
       "name": "url_launcher_windows",
       "version": "3.1.6",
       "dependencies": [
@@ -352,11 +387,6 @@
         "meta",
         "shared_preferences_platform_interface"
       ]
-    },
-    {
-      "name": "web",
-      "version": "1.1.1",
-      "dependencies": []
     },
     {
       "name": "http_parser",

@@ -16,8 +16,8 @@ class AdminHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      height: 46,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -32,7 +32,7 @@ class AdminHeader extends StatelessWidget {
               const Text(
                 'AbsensiKu',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 11,
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF6B7280),
                 ),
@@ -44,7 +44,7 @@ class AdminHeader extends StatelessWidget {
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF111827),
                 ),
@@ -53,42 +53,73 @@ class AdminHeader extends StatelessWidget {
           ),
           const Spacer(),
 
-          // Bell Notifikasi Icon with Red Dot Badge
-          ValueListenableBuilder<int>(
-            valueListenable: NotifikasiService.unreadCountNotifier,
-            builder: (context, unreadCount, _) {
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications_rounded, size: 24, color: Color(0xFF6B7280)),
-                    onPressed: onOpenNotifikasi,
-                    tooltip: 'Notifikasi',
-                  ),
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEF4444),
-                        shape: BoxShape.circle,
+          ValueListenableBuilder<bool>(
+            valueListenable: NotifikasiService.realtimeConnectedNotifier,
+            builder: (context, isConnected, _) {
+              return ValueListenableBuilder<int>(
+                valueListenable: NotifikasiService.unreadCountNotifier,
+                builder: (context, unreadCount, _) {
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.notifications_rounded,
+                            size: 24, color: Color(0xFF6B7280)),
+                        onPressed: onOpenNotifikasi,
+                        tooltip: isConnected
+                            ? 'Notifikasi (real-time aktif)'
+                            : 'Notifikasi (menghubungkan...)',
                       ),
-                    ),
-                  ),
-                ],
+                      if (unreadCount > 0)
+                        Positioned(
+                          top: 3,
+                          right: 1,
+                          child: Container(
+                            constraints: const BoxConstraints(minWidth: 16),
+                            height: 16,
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              unreadCount > 99 ? '99+' : '$unreadCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        )
+                      else if (!isConnected)
+                        Positioned(
+                          top: 7,
+                          right: 5,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF59E0B),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               );
             },
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 8),
 
           // Circle SA Profile Avatar
           GestureDetector(
             onTap: onBukaProfil,
             child: Container(
-              width: 38,
-              height: 38,
+              width: 30,
+              height: 30,
               decoration: const BoxDecoration(
                 color: Color(0xFF385C83),
                 shape: BoxShape.circle,
@@ -98,7 +129,7 @@ class AdminHeader extends StatelessWidget {
                 'SA',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 13,
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                 ),
               ),

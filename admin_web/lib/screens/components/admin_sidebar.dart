@@ -87,13 +87,9 @@ class _AdminSidebarState extends State<AdminSidebar> {
     ];
 
     return Container(
-      width: 270,
+      width: 176,
       decoration: const BoxDecoration(
-        color: Color(0xFF4C58A5),
-        borderRadius: BorderRadius.only(
-          topRight: Radius.circular(28),
-          bottomRight: Radius.circular(28),
-        ),
+        color: Color(0xFF4F5BA8),
       ),
       child: SafeArea(
         child: Column(
@@ -101,23 +97,23 @@ class _AdminSidebarState extends State<AdminSidebar> {
           children: [
             // 1. Header: Icon Settings Lingkaran + Absensiku & Admin Panel
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+              padding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
               child: Row(
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 30,
+                    height: 30,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                     ),
                     child: const Icon(
                       Icons.settings_rounded,
                       color: Colors.white,
-                      size: 24,
+                      size: 17,
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 8),
                   const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -126,7 +122,7 @@ class _AdminSidebarState extends State<AdminSidebar> {
                         'Absensiku',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 18,
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.2,
                         ),
@@ -136,7 +132,7 @@ class _AdminSidebarState extends State<AdminSidebar> {
                         'Admin Panel',
                         style: TextStyle(
                           color: Colors.white70,
-                          fontSize: 13,
+                          fontSize: 9,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -149,13 +145,13 @@ class _AdminSidebarState extends State<AdminSidebar> {
             Divider(
               height: 1,
               thickness: 1,
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
             ),
 
             // 2. Daftar Menu Vertikal (6 Menu Sesuai Mockup Asli)
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 4),
                 itemCount: menuItems.length,
                 itemBuilder: (context, i) {
                   final item = menuItems[i];
@@ -165,27 +161,26 @@ class _AdminSidebarState extends State<AdminSidebar> {
                     onTap: () => widget.onItemSelected(i),
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 14),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? Colors.white.withOpacity(0.22)
+                            ? Colors.white.withValues(alpha: 0.22)
                             : Colors.transparent,
                       ),
                       child: Row(
                         children: [
                           Icon(
                             item['icon'] as IconData,
-                            size: 22,
+                            size: 17,
                             color: Colors.white,
                           ),
-                          const SizedBox(width: 14),
+                          const SizedBox(width: 9),
                           Expanded(
                             child: Text(
                               item['title'] as String,
                               style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
                                 color: Colors.white,
                                 letterSpacing: 0.1,
                               ),
@@ -203,12 +198,12 @@ class _AdminSidebarState extends State<AdminSidebar> {
             InkWell(
               onTap: () => widget.onBukaProfil?.call(),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+                padding: const EdgeInsets.fromLTRB(12, 8, 10, 10),
                 child: Row(
                   children: [
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 30,
+                      height: 30,
                       decoration: const BoxDecoration(
                         color: Color(0xFF386B7B),
                         shape: BoxShape.circle,
@@ -218,7 +213,7 @@ class _AdminSidebarState extends State<AdminSidebar> {
                         'SA',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 14,
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.5,
                         ),
@@ -234,7 +229,7 @@ class _AdminSidebarState extends State<AdminSidebar> {
                             _namaAdmin,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 16,
+                              fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
                             maxLines: 1,
@@ -244,8 +239,8 @@ class _AdminSidebarState extends State<AdminSidebar> {
                           Text(
                             _roleAdmin,
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.75),
-                              fontSize: 13,
+                              color: Colors.white.withValues(alpha: 0.75),
+                              fontSize: 8,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -260,16 +255,16 @@ class _AdminSidebarState extends State<AdminSidebar> {
 
             // 4. Tombol 'Keluar' Sesuai Mockup Asli
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
               child: InkWell(
                 onTap: () => _logout(context),
                 borderRadius: BorderRadius.circular(22),
                 child: Container(
-                  height: 44,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  height: 28,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.18),
-                    borderRadius: BorderRadius.circular(22),
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -277,15 +272,15 @@ class _AdminSidebarState extends State<AdminSidebar> {
                       Text(
                         'Keluar',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
-                          fontSize: 14,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Icon(
                         Icons.open_in_new_rounded,
-                        color: Colors.white.withOpacity(0.9),
-                        size: 19,
+                        color: Colors.white.withValues(alpha: 0.9),
+                        size: 14,
                       ),
                     ],
                   ),

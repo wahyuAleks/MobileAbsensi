@@ -52,7 +52,8 @@ class NotifikasiSheet extends StatelessWidget {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.notifications_active_rounded, color: AppConstants.primaryColor),
+                  Icon(Icons.notifications_active_rounded,
+                      color: AppConstants.primaryColor),
                   SizedBox(width: 8),
                   Text(
                     'Pemberitahuan Admin',
@@ -67,6 +68,28 @@ class NotifikasiSheet extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          ValueListenableBuilder<String?>(
+            valueListenable: NotifikasiService.errorNotifier,
+            builder: (context, error, _) {
+              if (error == null) return const SizedBox.shrink();
+              return Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  error,
+                  style: const TextStyle(
+                    color: Color(0xFF9A3412),
+                    fontSize: 12,
+                  ),
+                ),
+              );
+            },
+          ),
           ValueListenableBuilder<List<NotifikasiItem>>(
             valueListenable: NotifikasiService.itemsNotifier,
             builder: (context, items, _) {
@@ -74,7 +97,8 @@ class NotifikasiSheet extends StatelessWidget {
                 return Container(
                   padding: const EdgeInsets.all(24),
                   alignment: Alignment.center,
-                  child: const Text('Tidak ada pemberitahuan baru.', style: TextStyle(color: Colors.grey)),
+                  child: const Text('Tidak ada pemberitahuan baru.',
+                      style: TextStyle(color: Colors.grey)),
                 );
               }
               return Container(
@@ -91,14 +115,23 @@ class NotifikasiSheet extends StatelessWidget {
                             ? const Color(0xFFFEF3C7)
                             : const Color(0xFFE0E7FF),
                         child: Icon(
-                          item.tipe == 'cuti' ? Icons.assignment : Icons.info_outline,
-                          color: item.tipe == 'cuti' ? Colors.amber[800] : AppConstants.primaryColor,
+                          item.tipe == 'cuti'
+                              ? Icons.assignment
+                              : Icons.info_outline,
+                          color: item.tipe == 'cuti'
+                              ? Colors.amber[800]
+                              : AppConstants.primaryColor,
                           size: 20,
                         ),
                       ),
-                      title: Text(item.judul, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: Text(item.pesan, style: const TextStyle(fontSize: 12)),
-                      trailing: Text(item.waktu, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                      title: Text(item.judul,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: Text(item.pesan,
+                          style: const TextStyle(fontSize: 12)),
+                      trailing: Text(item.waktu,
+                          style: const TextStyle(
+                              fontSize: 11, color: Colors.grey)),
                       onTap: () {
                         NotifikasiService.markAsRead(item.id);
                         Navigator.pop(context);

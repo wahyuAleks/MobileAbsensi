@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../core/notifikasi_service.dart';
 import 'components/admin_sidebar.dart';
+import 'components/admin_header.dart';
 import 'components/notifikasi_sheet.dart';
 
 import 'home_admin_screen.dart';
@@ -19,14 +21,40 @@ class DashboardWebScreen extends StatefulWidget {
   State<DashboardWebScreen> createState() => _DashboardWebScreenState();
 }
 
-class _DashboardWebScreenState extends State<DashboardWebScreen> {
+class _DashboardWebScreenState extends State<DashboardWebScreen>
+    with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late int _index;
+  final List<String> _titles = const [
+    'Dashboard',
+    'Data Karyawan',
+    'Monitoring Absensi',
+    'Rekap Absensi',
+    'Persetujuan Cuti',
+    'Rekap Laporan',
+    'Profil Admin',
+  ];
 
   @override
   void initState() {
     super.initState();
     _index = widget.initialIndex;
+    WidgetsBinding.instance.addObserver(this);
+    NotifikasiService.startRealtime();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      NotifikasiService.startRealtime();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    NotifikasiService.stopRealtime();
+    super.dispose();
   }
 
   void _pindahTab(int i) {
@@ -103,22 +131,30 @@ class _DashboardWebScreenState extends State<DashboardWebScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: const Color(0xFFF5F7FB),
       body: Row(
         children: [
-          // Sidebar Navigasi Admin Terpasang di Kiri untuk Layar Web
           AdminSidebar(
             selectedIndex: _index,
             onItemSelected: _pindahTab,
             onOpenNotifikasi: _bukaNotifikasi,
             onBukaProfil: () => _pindahTab(6),
           ),
-
-          // Konten Layar Asli Teman Anda
           Expanded(
-            child: IndexedStack(
-              index: _index,
-              children: screens,
+            child: Column(
+              children: [
+                AdminHeader(
+                  title: _titles[_index],
+                  onOpenNotifikasi: _bukaNotifikasi,
+                  onBukaProfil: () => _pindahTab(6),
+                ),
+                Expanded(
+                  child: IndexedStack(
+                    index: _index,
+                    children: screens,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

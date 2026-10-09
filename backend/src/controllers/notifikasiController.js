@@ -1,11 +1,12 @@
 const Notifikasi = require('../models/Notifikasi');
 const User = require('../models/User');
+const { emitToUser } = require('../services/realtime');
 
 // Helper untuk membuat notifikasi baru dari controller lain
 exports.buatNotifikasi = async ({ user_id, tipe, judul, pesan, cta_text, data }) => {
   try {
     const dataStr = data ? (typeof data === 'string' ? data : JSON.stringify(data)) : null;
-    return await Notifikasi.create({
+    const notifikasi = await Notifikasi.create({
       user_id,
       tipe: tipe || 'info',
       judul,
@@ -14,6 +15,18 @@ exports.buatNotifikasi = async ({ user_id, tipe, judul, pesan, cta_text, data })
       data: dataStr,
       is_read: false,
     });
+    emitToUser(user_id, 'notifikasi_baru', {
+      id: notifikasi.id,
+      user_id: notifikasi.user_id,
+      tipe: notifikasi.tipe,
+      judul: notifikasi.judul,
+      pesan: notifikasi.pesan,
+      cta_text: notifikasi.cta_text,
+      data: dataStr,
+      is_read: notifikasi.is_read,
+      createdAt: notifikasi.createdAt,
+    });
+    return notifikasi;
   } catch (err) {
     console.error('Gagal membuat notifikasi:', err.message);
     return null;

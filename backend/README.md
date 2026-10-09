@@ -64,6 +64,10 @@ profile → logout.
 Profile) → CRUD data karyawan → lihat rekap absensi semua karyawan → lihat daftar
 pengajuan cuti, periksa detail, setujui/tolak → logout.
 
+**Admin Web:** tambah akun menggunakan nama lengkap, email, password, dan role
+Admin atau Karyawan. Dashboard web tetap menampilkan Tren Luas dan Rekap Data
+Karyawan dengan filter harian, mingguan, dan bulanan.
+
 ## Yang belum / perlu kamu lanjutkan
 
 - UI masih polos (Material default) — tinggal disesuaikan begitu desain Figma final

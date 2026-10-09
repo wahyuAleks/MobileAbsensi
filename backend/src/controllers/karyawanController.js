@@ -15,6 +15,18 @@ exports.daftarKaryawan = async (req, res) => {
   }
 };
 
+exports.daftarAkun = async (req, res) => {
+  try {
+    const data = await User.findAll({
+      attributes: { exclude: ['password'] },
+      order: [['nama', 'ASC']],
+    });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: 'Terjadi kesalahan server', error: err.message });
+  }
+};
+
 exports.detailKaryawan = async (req, res) => {
   try {
     const data = await User.findByPk(req.params.id, { attributes: { exclude: ['password'] } });
@@ -29,8 +41,12 @@ exports.detailKaryawan = async (req, res) => {
 exports.tambahKaryawan = async (req, res) => {
   try {
     const { nama, email, password, jabatan, no_hp } = req.body;
+    const role = req.body.role ?? 'karyawan';
     if (!nama || !email || !password) {
       return res.status(400).json({ message: 'Nama, email, dan password wajib diisi' });
+    }
+    if (!['admin', 'karyawan'].includes(role)) {
+      return res.status(400).json({ message: 'Role harus admin atau karyawan' });
     }
 
     const existing = await User.findOne({ where: { email } });
@@ -38,11 +54,14 @@ exports.tambahKaryawan = async (req, res) => {
 
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({
-      nama, email, password: hash, jabatan, no_hp, role: 'karyawan',
+      nama, email, password: hash, jabatan, no_hp, role,
     });
 
     const { password: _pw, ...userTanpaPassword } = user.toJSON();
-    res.status(201).json({ message: 'Karyawan berhasil ditambahkan', data: userTanpaPassword });
+    res.status(201).json({
+      message: role === 'admin' ? 'Admin berhasil ditambahkan' : 'Karyawan berhasil ditambahkan',
+      data: userTanpaPassword,
+    });
   } catch (err) {
     res.status(500).json({ message: 'Terjadi kesalahan server', error: err.message });
   }
@@ -97,4 +116,3 @@ exports.hapusKaryawan = async (req, res) => {
     res.status(500).json({ message: 'Terjadi kesalahan server', error: err.message });
   }
 };
-
