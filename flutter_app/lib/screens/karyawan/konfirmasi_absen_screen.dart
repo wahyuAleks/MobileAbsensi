@@ -21,6 +21,8 @@ import 'absen_sukses_screen.dart';
 ///    - Tombol "Batal" (putih berbingkai abu-abu)
 class KonfirmasiAbsenScreen extends StatefulWidget {
   final bool isMasuk;
+  final int? jadwalId;
+  final String? lokasiNama;
   final File? fotoWajah;
   final Position? position;
   final String? lokasiText;
@@ -28,6 +30,8 @@ class KonfirmasiAbsenScreen extends StatefulWidget {
   const KonfirmasiAbsenScreen({
     super.key,
     this.isMasuk = true,
+    this.jadwalId,
+    this.lokasiNama,
     this.fotoWajah,
     this.position,
     this.lokasiText,
@@ -87,6 +91,14 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
     if (_submitting) return;
 
     if (widget.fotoWajah != null) {
+      if (widget.jadwalId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Jadwal kerja tidak ditemukan. Silakan buka slot dari tab Absensi.')),
+        );
+        return;
+      }
       setState(() => _submitting = true);
       try {
         final lat = widget.position?.latitude ?? -6.949161;
@@ -98,13 +110,16 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
             foto: widget.fotoWajah!,
             lat: lat,
             lng: lng,
+            jadwalId: widget.jadwalId!,
           );
-          final status = (hasil['data']?['status'] ?? '').toString().toLowerCase();
+          final status =
+              (hasil['data']?['status'] ?? '').toString().toLowerCase();
           if (status == 'telat') {
             statusKirim = 'Terlambat';
           } else {
             final jamMasuk = (hasil['data']?['jam_masuk'] ?? '').toString();
-            final jamTarget = (hasil['jam_masuk_target'] ?? '08:00:00').toString();
+            final jamTarget =
+                (hasil['jam_masuk_target'] ?? '08:00:00').toString();
             statusKirim = jamMasuk.compareTo(jamTarget) < 0
                 ? 'Datang Lebih Awal'
                 : 'Tepat Waktu';
@@ -114,6 +129,7 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
             foto: widget.fotoWajah!,
             lat: lat,
             lng: lng,
+            jadwalId: widget.jadwalId!,
           );
           statusKirim = 'Sudah Pulang';
         }
@@ -124,7 +140,7 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
             builder: (_) => AbsenSuksesScreen(
               isMasuk: widget.isMasuk,
               status: statusKirim,
-              lokasi: widget.lokasiText ?? 'Kantor Pusat',
+              lokasi: widget.lokasiNama ?? widget.lokasiText ?? 'Kantor Pusat',
             ),
           ),
         );
@@ -175,7 +191,8 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
         : 'Senin, 28 September 2026';
     final String waktuDisplay = _getWaktuFormatted();
     final String jenisAbsensi = widget.isMasuk ? 'Absen Masuk' : 'Absen Pulang';
-    final String lokasiDisplay = widget.lokasiText ?? 'Kantor Pusat — 45m dari titik ref.';
+    final String lokasiDisplay =
+        widget.lokasiText ?? 'Kantor Pusat — 45m dari titik ref.';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
@@ -202,7 +219,9 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    widget.isMasuk ? 'Konfirmasi Absen Masuk' : 'Konfirmasi Absen Pulang',
+                    widget.isMasuk
+                        ? 'Konfirmasi Absen Masuk'
+                        : 'Konfirmasi Absen Pulang',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -230,7 +249,8 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
+                        border: Border.all(
+                            color: const Color(0xFFE5E7EB), width: 1.2),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.02),
@@ -253,7 +273,8 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
                               width: 75,
                               height: 72,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF4F5BA8), // Warna indigo-biru persis Figma
+                                color: const Color(
+                                    0xFF4F5BA8), // Warna indigo-biru persis Figma
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               alignment: Alignment.center,
@@ -273,7 +294,8 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
+                        border: Border.all(
+                            color: const Color(0xFFE5E7EB), width: 1.2),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.02),
@@ -306,7 +328,10 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
                             valueColor: const Color(0xFF4F5BA8),
                             isBold: true,
                           ),
-                          const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+                          const Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: Color(0xFFE5E7EB)),
 
                           // Baris 2: Tanggal
                           _buildTableRow(
@@ -314,7 +339,10 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
                             value: tanggalDisplay,
                             isBold: true,
                           ),
-                          const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+                          const Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: Color(0xFFE5E7EB)),
 
                           // Baris 3: Waktu
                           _buildTableRow(
@@ -322,7 +350,10 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
                             value: waktuDisplay,
                             isBold: true,
                           ),
-                          const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+                          const Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: Color(0xFFE5E7EB)),
 
                           // Baris 4: Lokasi
                           _buildTableRow(
@@ -330,7 +361,10 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
                             value: lokasiDisplay,
                             isBold: true,
                           ),
-                          const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+                          const Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: Color(0xFFE5E7EB)),
 
                           // Baris 5: Metode
                           _buildTableRow(
@@ -359,7 +393,8 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
                     height: 52,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4F5BA8), // Warna ungu-biru utama
+                        backgroundColor:
+                            const Color(0xFF4F5BA8), // Warna ungu-biru utama
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -371,12 +406,14 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
                           ? const SizedBox(
                               width: 22,
                               height: 22,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2),
                             )
                           : const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.check, size: 20, color: Colors.white),
+                                Icon(Icons.check,
+                                    size: 20, color: Colors.white),
                                 SizedBox(width: 8),
                                 Text(
                                   'Konfirmasi Absen',
@@ -402,7 +439,8 @@ class _KonfirmasiAbsenScreenState extends State<KonfirmasiAbsenScreen> {
                         backgroundColor: Colors.white,
                         foregroundColor: const Color(0xFF111827),
                         elevation: 0,
-                        side: const BorderSide(color: Color(0xFFD1D5DB), width: 1.2),
+                        side: const BorderSide(
+                            color: Color(0xFFD1D5DB), width: 1.2),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),

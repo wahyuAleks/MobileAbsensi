@@ -7,6 +7,7 @@ import '../karyawan/detail_absensi_screen.dart';
 class MonitoringAbsensiScreen extends StatefulWidget {
   final bool showAppBar;
   final VoidCallback? onOpenDrawer;
+  final VoidCallback? onBack;
   final VoidCallback? onOpenNotifikasi;
   final VoidCallback? onBukaKaryawan;
   final VoidCallback? onBukaPersetujuanCuti;
@@ -16,6 +17,7 @@ class MonitoringAbsensiScreen extends StatefulWidget {
     super.key,
     this.showAppBar = false,
     this.onOpenDrawer,
+    this.onBack,
     this.onOpenNotifikasi,
     this.onBukaKaryawan,
     this.onBukaPersetujuanCuti,
@@ -23,7 +25,8 @@ class MonitoringAbsensiScreen extends StatefulWidget {
   });
 
   @override
-  State<MonitoringAbsensiScreen> createState() => _MonitoringAbsensiScreenState();
+  State<MonitoringAbsensiScreen> createState() =>
+      _MonitoringAbsensiScreenState();
 }
 
 class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
@@ -199,7 +202,9 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
         return items.where((k) {
           final s = (k['status'] ?? '').toString().toLowerCase();
           final jm = (k['jam_masuk'] ?? '').toString();
-          return s == 'hadir' || s == 'terlambat' || (jm.isNotEmpty && jm != '—');
+          return s == 'hadir' ||
+              s == 'terlambat' ||
+              (jm.isNotEmpty && jm != '—');
         }).toList();
 
       case 'terlambat':
@@ -340,33 +345,20 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Hamburger + Judul Monitoring Absensi
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.menu_rounded,
-                              size: 26,
-                              color: Color(0xFF111827),
-                            ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: widget.onOpenDrawer,
-                          ),
-                          const SizedBox(width: 14),
-                          const Text(
-                            'Monitoring Absensi',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF111827),
-                            ),
-                          ),
-                        ],
+                      IconButton(
+                        icon: const Icon(
+                          Icons.menu_rounded,
+                          size: 26,
+                          color: Color(0xFF111827),
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: widget.onOpenDrawer,
                       ),
 
                       // Bell Notifikasi & Avatar "SA"
@@ -426,6 +418,30 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    if (widget.onBack != null) ...[
+                      IconButton(
+                        tooltip: 'Kembali ke halaman sebelumnya',
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 40, minHeight: 40),
+                        onPressed: widget.onBack,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    const Text(
+                      'Monitoring Absensi',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 18),
 
                 // 2. ROW DATE PICKER & FILTER PILLS
@@ -439,7 +455,8 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
                         onTap: _pilihTanggal,
                         borderRadius: BorderRadius.circular(8),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 7),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF3F4F6),
                             borderRadius: BorderRadius.circular(8),
@@ -498,18 +515,27 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
                         final i = entry.key;
                         final k = Map<String, dynamic>.from(entry.value);
                         final user = k['User'] ?? {};
-                        final rawNama = (user['nama'] ?? k['nama'] ?? 'Karyawan').toString();
-                        final devisi = (user['jabatan'] ?? k['jabatan'] ?? 'Staff').toString();
+                        final rawNama =
+                            (user['nama'] ?? k['nama'] ?? 'Karyawan')
+                                .toString();
+                        final devisi =
+                            (user['jabatan'] ?? k['jabatan'] ?? 'Staff')
+                                .toString();
                         final jamMasuk = (k['jam_masuk'] ?? '—').toString();
                         final jamPulang = (k['jam_pulang'] ?? '—').toString();
-                        final statusStr = (k['status'] ?? '').toString().toLowerCase();
+                        final statusStr =
+                            (k['status'] ?? '').toString().toLowerCase();
 
                         // Inisial & Warna
                         final parts = rawNama.trim().split(RegExp(r'\s+'));
                         final initials = parts.length >= 2
                             ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
-                            : (rawNama.isNotEmpty ? rawNama[0].toUpperCase() : 'K');
-                        final color = i.isEven ? const Color(0xFF2F6B64) : const Color(0xFF385C83);
+                            : (rawNama.isNotEmpty
+                                ? rawNama[0].toUpperCase()
+                                : 'K');
+                        final color = i.isEven
+                            ? const Color(0xFF2F6B64)
+                            : const Color(0xFF385C83);
 
                         // Format baris nama jika 2 kata
                         final formattedNama = parts.length >= 2
@@ -518,11 +544,15 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
 
                         // Backend menyimpan status berdasarkan jadwal lokasi pada tanggal itu.
                         String itemStatus = 'hadir';
-                        if (statusStr.contains('terlambat') || statusStr == 'telat') {
+                        if (statusStr.contains('terlambat') ||
+                            statusStr == 'telat') {
                           itemStatus = 'terlambat';
-                        } else if (statusStr.contains('cuti') || statusStr.contains('izin')) {
+                        } else if (statusStr.contains('cuti') ||
+                            statusStr.contains('izin')) {
                           itemStatus = 'cuti';
-                        } else if (jamMasuk == '—' || jamMasuk.isEmpty || statusStr.contains('belum')) {
+                        } else if (jamMasuk == '—' ||
+                            jamMasuk.isEmpty ||
+                            statusStr.contains('belum')) {
                           itemStatus = 'belum';
                         }
 
@@ -556,15 +586,21 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
                     int countHadir = items.where((k) {
                       final s = (k['status'] ?? '').toString().toLowerCase();
                       final jm = (k['jam_masuk'] ?? '').toString();
-                      return s == 'hadir' || s == 'terlambat' || (jm.isNotEmpty && jm != '—');
+                      return s == 'hadir' ||
+                          s == 'terlambat' ||
+                          (jm.isNotEmpty && jm != '—');
                     }).length;
-                    int countTerlambat = items.where((k) => (k['status'] ?? '') == 'terlambat').length;
+                    int countTerlambat = items
+                        .where((k) => (k['status'] ?? '') == 'terlambat')
+                        .length;
                     int countBelum = items.where((k) {
                       final s = (k['status'] ?? '').toString().toLowerCase();
                       final jm = (k['jam_masuk'] ?? '').toString();
                       return s == 'belum' || jm == '—';
                     }).length;
-                    int countCuti = items.where((k) => (k['status'] ?? '') == 'cuti').length;
+                    int countCuti = items
+                        .where((k) => (k['status'] ?? '') == 'cuti')
+                        .length;
 
                     // Nilai fallback persis seperti mockup gambar (18, 2, 3, 1)
                     if (items == _mockAbsensi) {
@@ -587,7 +623,8 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
                               icon: Icons.check_circle_rounded,
                               iconBg: const Color(0xFFA3D9A5),
                               iconColor: const Color(0xFF236A28),
-                              onTap: () => setState(() => _activeFilter = 'hadir'),
+                              onTap: () =>
+                                  setState(() => _activeFilter = 'hadir'),
                             ),
                             const SizedBox(width: 14),
                             _buildMetricCard(
@@ -596,7 +633,8 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
                               icon: Icons.error_rounded,
                               iconBg: const Color(0xFFFED7AA),
                               iconColor: const Color(0xFFD97706),
-                              onTap: () => setState(() => _activeFilter = 'terlambat'),
+                              onTap: () =>
+                                  setState(() => _activeFilter = 'terlambat'),
                             ),
                           ],
                         ),
@@ -611,7 +649,8 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
                               icon: Icons.access_time_rounded,
                               iconBg: const Color(0xFFDDD6FE),
                               iconColor: const Color(0xFF4F5BA8),
-                              onTap: () => setState(() => _activeFilter = 'belum'),
+                              onTap: () =>
+                                  setState(() => _activeFilter = 'belum'),
                             ),
                             const SizedBox(width: 14),
                             _buildMetricCard(
@@ -688,7 +727,10 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              const Divider(height: 1, thickness: 1, color: Color(0xFFD1D5DB)),
+                              const Divider(
+                                  height: 1,
+                                  thickness: 1,
+                                  color: Color(0xFFD1D5DB)),
                               const SizedBox(height: 16),
 
                               // Daftar Baris Monitoring Absensi
@@ -698,7 +740,9 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
                                   child: Center(
                                     child: Text(
                                       'Tidak ada data absensi untuk kategori ini',
-                                      style: TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+                                      style: TextStyle(
+                                          color: Color(0xFF6B7280),
+                                          fontSize: 13),
                                     ),
                                   ),
                                 )
@@ -707,45 +751,55 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
                                   shrinkWrap: true,
                                   physics: const NeverScrollableScrollPhysics(),
                                   itemCount: displayedItems.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 18),
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(height: 18),
                                   itemBuilder: (context, i) {
                                     final item = displayedItems[i];
                                     final nama = item['nama'] as String;
                                     final initials = item['initials'] as String;
-                                    final avatarColor = item['avatarColor'] as Color;
+                                    final avatarColor =
+                                        item['avatarColor'] as Color;
                                     final devisi = item['devisi'] as String;
-                                    final jamMasuk = item['jam_masuk'] as String;
-                                    final jamPulang = item['jam_pulang'] as String;
+                                    final jamMasuk =
+                                        item['jam_masuk'] as String;
+                                    final jamPulang =
+                                        item['jam_pulang'] as String;
 
                                     return InkWell(
                                       onTap: () {
                                         Navigator.of(context).push(
                                           MaterialPageRoute(
-                                            builder: (_) => DetailAbsensiScreen(item: item),
+                                            builder: (_) =>
+                                                DetailAbsensiScreen(item: item),
                                           ),
                                         );
                                       },
                                       borderRadius: BorderRadius.circular(10),
                                       child: Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 4),
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 4),
                                         child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.center,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.center,
                                           children: [
                                             // 1. NAMA + AVATAR
                                             Expanded(
                                               flex: 4,
                                               child: Row(
-                                                crossAxisAlignment: CrossAxisAlignment.center,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.center,
                                                 children: [
                                                   CircleAvatar(
                                                     radius: 16,
-                                                    backgroundColor: avatarColor,
+                                                    backgroundColor:
+                                                        avatarColor,
                                                     child: Text(
                                                       initials,
                                                       style: const TextStyle(
                                                         color: Colors.white,
                                                         fontSize: 11,
-                                                        fontWeight: FontWeight.bold,
+                                                        fontWeight:
+                                                            FontWeight.bold,
                                                       ),
                                                     ),
                                                   ),
@@ -755,8 +809,10 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
                                                       nama,
                                                       style: const TextStyle(
                                                         fontSize: 12,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: Color(0xFF111827),
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color:
+                                                            Color(0xFF111827),
                                                         height: 1.25,
                                                       ),
                                                     ),

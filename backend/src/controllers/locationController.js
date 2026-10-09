@@ -1,5 +1,6 @@
 const Location = require('../models/Location');
 const WorkSchedule = require('../models/WorkSchedule');
+const WorkAssignment = require('../models/WorkAssignment');
 const User = require('../models/User');
 
 function validDate(value) {
@@ -13,6 +14,50 @@ function validTime(value) {
     /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
+function locationValues(body, current = null) {
+  const nama = typeof body.nama === 'string' ? body.nama.trim() : '';
+  if (!nama) return { error: 'Nama lokasi wajib diisi' };
+
+  const hasLatitude = Object.hasOwn(body, 'latitude');
+  const hasLongitude = Object.hasOwn(body, 'longitude');
+  if (hasLatitude !== hasLongitude) {
+    return { error: 'Latitude dan longitude harus diisi bersamaan' };
+  }
+
+  let latitude = current?.latitude ?? null;
+  let longitude = current?.longitude ?? null;
+  if (hasLatitude) {
+    const emptyPair = (body.latitude == null || String(body.latitude).trim() === '') &&
+      (body.longitude == null || String(body.longitude).trim() === '');
+    if (emptyPair) {
+      latitude = null;
+      longitude = null;
+    } else if (
+      !validCoordinate(body.latitude, -90, 90) ||
+      !validCoordinate(body.longitude, -180, 180)
+    ) {
+      return { error: 'Koordinat GPS tidak valid' };
+    } else {
+      latitude = Number(body.latitude);
+      longitude = Number(body.longitude);
+    }
+  }
+
+  const radius = body.radius_meters === undefined
+    ? Number(current?.radius_meters ?? 250)
+    : Number(body.radius_meters);
+  if (!Number.isInteger(radius) || radius <= 0 || radius > 10000) {
+    return { error: 'Radius harus berupa bilangan bulat antara 1 dan 10000 meter' };
+  }
+  return { value: { nama, latitude, longitude, radius_meters: radius } };
+}
+
+function validCoordinate(value, min, max) {
+  if (value == null || String(value).trim() === '') return false;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= min && number <= max;
+}
+
 exports.daftarLokasi = async (req, res) => {
   try {
     const data = await Location.findAll({ order: [['nama', 'ASC']] });
@@ -24,10 +69,10 @@ exports.daftarLokasi = async (req, res) => {
 
 exports.tambahLokasi = async (req, res) => {
   try {
-    const nama = typeof req.body.nama === 'string' ? req.body.nama.trim() : '';
-    if (!nama) return res.status(400).json({ message: 'Nama lokasi wajib diisi' });
+    const validated = locationValues(req.body);
+    if (validated.error) return res.status(400).json({ message: validated.error });
 
-    const data = await Location.create({ nama });
+    const data = await Location.create(validated.value);
     res.status(201).json({ message: 'Lokasi berhasil ditambahkan', data });
   } catch (err) {
     if (err.name === 'SequelizeUniqueConstraintError') {
@@ -42,10 +87,9 @@ exports.updateLokasi = async (req, res) => {
     const lokasi = await Location.findByPk(req.params.id);
     if (!lokasi) return res.status(404).json({ message: 'Lokasi tidak ditemukan' });
 
-    const nama = typeof req.body.nama === 'string' ? req.body.nama.trim() : '';
-    if (!nama) return res.status(400).json({ message: 'Nama lokasi wajib diisi' });
-    lokasi.nama = nama;
-    await lokasi.save();
+    const validated = locationValues(req.body, lokasi);
+    if (validated.error) return res.status(400).json({ message: validated.error });
+    await lokasi.update(validated.value);
     res.json({ message: 'Lokasi berhasil diperbarui', data: lokasi });
   } catch (err) {
     if (err.name === 'SequelizeUniqueConstraintError') {
@@ -64,6 +108,13 @@ exports.hapusLokasi = async (req, res) => {
     if (jumlahKaryawan > 0) {
       return res.status(409).json({
         message: 'Pindahkan karyawan dari lokasi ini sebelum menghapusnya',
+      });
+    }
+
+    const jumlahPenugasan = await WorkAssignment.count({ where: { location_id: lokasi.id } });
+    if (jumlahPenugasan > 0) {
+      return res.status(409).json({
+        message: 'Hapus penugasan jadwal kerja di lokasi ini sebelum menghapusnya',
       });
     }
 

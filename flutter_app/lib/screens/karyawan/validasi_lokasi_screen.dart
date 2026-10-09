@@ -22,6 +22,8 @@ import 'konfirmasi_absen_screen.dart';
 ///    - Tombol hijau zaitun (#48742C) "✓ Status Lokasi, Lanjutkan"
 class ValidasiLokasiScreen extends StatefulWidget {
   final bool isMasuk;
+  final int? jadwalId;
+  final String? lokasiNama;
   final File? fotoWajah;
   final Position? initialPosition;
   final bool showBackButton;
@@ -29,6 +31,8 @@ class ValidasiLokasiScreen extends StatefulWidget {
   const ValidasiLokasiScreen({
     super.key,
     this.isMasuk = true,
+    this.jadwalId,
+    this.lokasiNama,
     this.fotoWajah,
     this.initialPosition,
     this.showBackButton = false,
@@ -114,15 +118,22 @@ class _ValidasiLokasiScreenState extends State<ValidasiLokasiScreen> {
         ];
         final alamat = parts.isNotEmpty
             ? parts.join(', ')
-            : '${p.subAdministrativeArea ?? ''}, ${p.administrativeArea ?? ''}'.trim().replaceAll(RegExp(r'^,|,$'), '');
+            : '${p.subAdministrativeArea ?? ''}, ${p.administrativeArea ?? ''}'
+                .trim()
+                .replaceAll(RegExp(r'^,|,$'), '');
         if (mounted) {
           setState(() {
-            _displayAlamat = alamat.isNotEmpty ? alamat : 'Alamat tidak dikenali';
+            _displayAlamat =
+                alamat.isNotEmpty ? alamat : 'Alamat tidak dikenali';
             _isLoadingAlamat = false;
           });
         }
       } else {
-        if (mounted) setState(() { _displayAlamat = '$latStr, $lngStr'; _isLoadingAlamat = false; });
+        if (mounted)
+          setState(() {
+            _displayAlamat = '$latStr, $lngStr';
+            _isLoadingAlamat = false;
+          });
       }
     } catch (_) {
       // Jika reverse geocoding gagal (offline/timeout), tampilkan koordinat saja
@@ -140,9 +151,12 @@ class _ValidasiLokasiScreenState extends State<ValidasiLokasiScreen> {
       MaterialPageRoute(
         builder: (_) => KonfirmasiAbsenScreen(
           isMasuk: widget.isMasuk,
+          jadwalId: widget.jadwalId,
+          lokasiNama: widget.lokasiNama,
           fotoWajah: widget.fotoWajah,
           position: _currentPosition,
-          lokasiText: 'Kantor Pusat — $_displayJarak dari titik ref.',
+          lokasiText:
+              '${widget.lokasiNama ?? 'Kantor Pusat'} — $_displayJarak dari titik ref.',
         ),
       ),
     );
@@ -169,7 +183,8 @@ class _ValidasiLokasiScreenState extends State<ValidasiLokasiScreen> {
                 children: [
                   if (widget.showBackButton && Navigator.canPop(context)) ...[
                     IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Color(0xFF111827), size: 22),
+                      icon: const Icon(Icons.arrow_back,
+                          color: Color(0xFF111827), size: 22),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       onPressed: () => Navigator.pop(context),
@@ -204,7 +219,8 @@ class _ValidasiLokasiScreenState extends State<ValidasiLokasiScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFFF0F0F0),
                         borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: const Color(0xFFD1D5DB), width: 1.2),
+                        border: Border.all(
+                            color: const Color(0xFFD1D5DB), width: 1.2),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.03),
@@ -332,7 +348,8 @@ class _ValidasiLokasiScreenState extends State<ValidasiLokasiScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
+                        border: Border.all(
+                            color: const Color(0xFFE5E7EB), width: 1.2),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.03),
@@ -357,7 +374,8 @@ class _ValidasiLokasiScreenState extends State<ValidasiLokasiScreen> {
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4.5),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFCEF4C9),
                                   borderRadius: BorderRadius.circular(16),
@@ -372,7 +390,9 @@ class _ValidasiLokasiScreenState extends State<ValidasiLokasiScreen> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      _isLokasiValid ? 'Lokasi Valid' : 'Di Luar Radius',
+                                      _isLokasiValid
+                                          ? 'Lokasi Valid'
+                                          : 'Di Luar Radius',
                                       style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
@@ -386,7 +406,10 @@ class _ValidasiLokasiScreenState extends State<ValidasiLokasiScreen> {
                           ),
 
                           const SizedBox(height: 10),
-                          const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+                          const Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: Color(0xFFE5E7EB)),
                           const SizedBox(height: 14),
 
                           // Baris 1: Kantor Utama -> ✓ 45m
@@ -488,7 +511,8 @@ class _ValidasiLokasiScreenState extends State<ValidasiLokasiScreen> {
                 height: 52,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF48742C), // Hijau zaitun pekat persis mockup
+                    backgroundColor: const Color(
+                        0xFF48742C), // Hijau zaitun pekat persis mockup
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(

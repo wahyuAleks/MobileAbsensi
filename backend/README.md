@@ -36,6 +36,12 @@ Sebelum run, sesuaikan `lib/core/constants.dart`:
 - `baseUrl` → alamat backend kamu (`10.0.2.2` untuk emulator Android yang backend-nya
   jalan di localhost, atau IP lokal laptop kalau tes di HP fisik dalam satu jaringan wifi).
 
+Untuk setiap lokasi kerja, admin perlu mengisi latitude, longitude, dan radius
+melalui menu **Jadwal Karyawan → Kelola lokasi**. Jadwal baru tidak dapat dibuat
+sebelum geofence lokasi disetel; jadwal lama dengan lokasi yang belum disetel
+akan menolak absensi sampai admin melengkapinya. Koordinat harus menunjuk ke
+lokasi kerja, bukan lokasi perangkat admin.
+
 App butuh izin **Kamera** dan **Lokasi**. Tambahkan permission berikut:
 
 **Android** (`android/app/src/main/AndroidManifest.xml`):
@@ -56,13 +62,26 @@ App butuh izin **Kamera** dan **Lokasi**. Tambahkan permission berikut:
 ## Yang sudah diimplementasikan (sesuai flow)
 
 **Karyawan:** splash → onboarding → login → dashboard (Home, Pengajuan Cuti,
-Riwayat Absen, Laporan, Profile) → absen masuk/pulang (foto + validasi GPS radius
-kantor) → form pengajuan cuti + informasi status cuti → form laporan → edit
-profile → logout.
+Riwayat Absen, Laporan, Profile) → absen masuk/pulang sesuai slot dan lokasi
+yang ditugaskan admin (foto + validasi GPS geofence lokasi) → form pengajuan
+cuti + informasi status cuti → form laporan → edit profile → logout.
 
 **Admin:** login → dashboard (Data Karyawan, Rekap Absensi, Persetujuan Cuti,
-Profile) → CRUD data karyawan → lihat rekap absensi semua karyawan → lihat daftar
-pengajuan cuti, periksa detail, setujui/tolak → logout.
+Profile, Jadwal Karyawan, Master Jenis Kegiatan) → CRUD data karyawan → lihat
+rekap absensi semua karyawan → kelola jadwal per karyawan/lokasi → kelola pilihan
+jenis kegiatan laporan → lihat daftar pengajuan cuti, periksa detail,
+setujui/tolak → logout.
+
+Saat menambahkan jadwal, admin dapat memilih beberapa karyawan untuk lokasi
+dan jam kerja yang sama. Backend membuat penugasan terpisah per akun karyawan
+dan menyimpan notifikasi jadwal baru pada masing-masing akun; perubahan dan
+pembatalan jadwal juga menghasilkan notifikasi dalam aplikasi.
+
+Jenis kegiatan laporan disimpan sebagai master data. Admin dapat menambah,
+mengubah, dan menonaktifkan jenis kegiatan melalui menu **Master Jenis Kegiatan**
+di aplikasi admin. Laporan tetap menyimpan nama jenis kegiatan saat laporan
+dibuat; menonaktifkan atau mengganti nama master tidak mengubah label laporan
+yang sudah tersimpan.
 
 ## Yang belum / perlu kamu lanjutkan
 
@@ -71,5 +90,6 @@ pengajuan cuti, periksa detail, setujui/tolak → logout.
 - Belum ada halaman "Rekap Laporan" khusus di sisi admin (endpoint backend-nya
   sudah ada: `GET /api/laporan/rekap`), tinggal dibuatkan screen-nya.
 - Belum ada endpoint register/seed admin pertama — perlu ditambahkan atau insert manual.
-- Validasi radius kantor pakai satu titik koordinat tunggal (`OFFICE_LAT/LNG`) —
-  kalau ada banyak cabang kantor, perlu disesuaikan modelnya.
+- Koordinat dan radius geofence harus dikonfigurasi sendiri untuk setiap lokasi
+  kerja; nilai koordinat lama dari `OFFICE_LAT/LNG` tidak otomatis disalin karena
+  satu titik global tidak mewakili semua cabang.

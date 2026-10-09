@@ -4,14 +4,16 @@ import '../../core/constants.dart';
 import '../../core/session.dart';
 import '../../core/notifikasi_service.dart';
 import '../../core/app_events.dart';
-import 'absensi_screen.dart';
+import 'jadwal_absensi_screen.dart';
 import 'riwayat_absen_screen.dart';
 import 'laporan_screen.dart';
 import 'pengajuan_cuti_screen.dart';
 import 'components/notifikasi_karyawan_popup.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final VoidCallback? onOpenAbsensi;
+
+  const HomeScreen({super.key, this.onOpenAbsensi});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -23,6 +25,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _fotoProfil;
   String? _jamMasuk;
   String? _jamPulang;
+  List<Map<String, dynamic>> _jadwalHariIni = [];
+  String? _jadwalError;
 
   int _countHadir = 14;
   int _countTerlambat = 2;
@@ -52,9 +56,35 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _muat() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _jadwalHariIni = [];
+      _jamMasuk = null;
+      _jamPulang = null;
+    });
     try {
-      final status = await ApiService.statusHariIni();
+      _jadwalError = null;
+      try {
+        final jadwal = await ApiService.jadwalKerjaHariIni();
+        final slots = jadwal['slots'];
+        if (slots is List && mounted) {
+          _jadwalHariIni =
+              slots.map((item) => Map<String, dynamic>.from(item)).toList();
+        } else {
+          throw const FormatException('Format jadwal kerja tidak valid.');
+        }
+      } catch (e) {
+        if (mounted) _jadwalError = e.toString();
+      }
+      final slotBerikutnya = _jadwalHariIni
+          .cast<Map<String, dynamic>?>()
+          .firstWhere(
+            (slot) =>
+                slot?['status'] != 'selesai' && slot?['status'] != 'terlewat',
+            orElse: () => null,
+          );
+      _jamMasuk = _formatJam(slotBerikutnya?['jam_mulai']);
+      _jamPulang = _formatJam(slotBerikutnya?['jam_selesai']);
       final nama = await Session.getNama();
       if (mounted && nama != null && nama.isNotEmpty) {
         _nama = nama;
@@ -73,16 +103,6 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }
       } catch (_) {}
-
-      if (status['data'] != null) {
-        final data = status['data'];
-        String? msk = data['jam_masuk'];
-        String? plg = data['jam_pulang'];
-        if (msk != null && msk.length >= 5) msk = msk.substring(0, 5);
-        if (plg != null && plg.length >= 5) plg = plg.substring(0, 5);
-        _jamMasuk = msk;
-        _jamPulang = plg;
-      }
 
       // Ambil ringkasan riwayat jika tersedia
       try {
@@ -147,14 +167,92 @@ class _HomeScreenState extends State<HomeScreen> {
     return parts[0][0].toUpperCase();
   }
 
-  void _bukaAbsensi({bool? isMasuk}) {
+  String? _formatJam(dynamic value) {
+    if (value == null) return null;
+    final jam = value.toString();
+    return jam.length >= 5 ? jam.substring(0, 5) : jam;
+  }
+
+  Widget _buildJadwalHariIni() {
+    final active = _jadwalHariIni.where(
+        (slot) => slot['status'] != 'selesai' && slot['status'] != 'terlewat');
+    final next = active.isEmpty ? null : active.first;
+    final location = next?['Location'];
+    final locationName = location is Map
+        ? location['nama']?.toString() ?? 'Lokasi kerja'
+        : 'Lokasi kerja';
+    final start = next?['jam_mulai']?.toString();
+    final startText =
+        start != null && start.length >= 5 ? start.substring(0, 5) : '';
+
+    return InkWell(
+      onTap: _bukaAbsensi,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEEF2FF),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFDDE3FF)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.event_note_rounded, color: Color(0xFF4F5BA8)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Jadwal kerja hari ini',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF27315B),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _jadwalError != null
+                        ? 'Jadwal belum dapat dimuat. Ketuk untuk mencoba lagi.'
+                        : _jadwalHariIni.isEmpty
+                            ? 'Belum ada jadwal kerja hari ini.'
+                            : next == null
+                                ? 'Semua slot kerja hari ini sudah lewat. Hubungi admin jika kamu belum sempat absen.'
+                                : '${_jadwalHariIni.length} slot kerja. Slot berikutnya: $locationName${startText.isEmpty ? '' : ', pukul $startText'}.',
+                    style: const TextStyle(
+                      color: Color(0xFF4B5563),
+                      fontSize: 12,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'Lihat jadwal',
+                    style: TextStyle(
+                      color: Color(0xFF4F5BA8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Color(0xFF4F5BA8)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _bukaAbsensi() {
+    if (widget.onOpenAbsensi != null) {
+      widget.onOpenAbsensi!();
+      return;
+    }
     Navigator.of(context)
         .push(
           MaterialPageRoute(
-            builder: (_) => AbsensiScreen(
-              initialIsMasuk: isMasuk ?? true,
-              isStandalone: true,
-            ),
+            builder: (_) => const JadwalAbsensiScreen(),
           ),
         )
         .then((_) => _muat());
@@ -392,7 +490,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     CrossAxisAlignment.start,
                                                 children: [
                                                   const Text(
-                                                    'Jam Masuk',
+                                                    'Mulai Slot Berikutnya',
                                                     style: TextStyle(
                                                         fontSize: 12,
                                                         color:
@@ -429,7 +527,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     CrossAxisAlignment.start,
                                                 children: [
                                                   const Text(
-                                                    'Jam Pulang',
+                                                    'Selesai Slot Berikutnya',
                                                     style: TextStyle(
                                                         fontSize: 12,
                                                         color:
@@ -486,6 +584,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
 
+                    const SizedBox(height: 14),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildJadwalHariIni(),
+                    ),
                     const SizedBox(height: 20),
 
                     // 3. MENU CEPAT
@@ -513,14 +616,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             iconBg: const Color(0xFFEEF2FF),
                             iconColor: const Color(0xFF3B82F6),
                             label: 'Absen\nMasuk',
-                            onTap: () => _bukaAbsensi(isMasuk: true),
+                            onTap: _bukaAbsensi,
                           ),
                           _buildMenuCepatItem(
                             icon: Icons.access_time_filled,
                             iconBg: const Color(0xFFDCFCE7),
                             iconColor: const Color(0xFF16A34A),
                             label: 'Absen\nKeluar',
-                            onTap: () => _bukaAbsensi(isMasuk: false),
+                            onTap: _bukaAbsensi,
                           ),
                           _buildMenuCepatItem(
                             icon: Icons.format_list_bulleted,

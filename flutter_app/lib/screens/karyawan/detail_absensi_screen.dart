@@ -281,7 +281,12 @@ class DetailAbsensiScreen extends StatelessWidget {
       koordinatDisplay = item['koordinat']?.toString() ?? '-6.9492° S, 107.6450° E • Akurasi ±5m';
     }
 
-    final String lokasiMasuk = item['lokasi']?.toString() ?? 'Kantor Pusat — Jl. Sudirman No. 45';
+    final jadwalKerja = item['jadwal_kerja'];
+    final lokasiJadwal = jadwalKerja is Map ? jadwalKerja['Location'] : null;
+    final String lokasiMasuk = lokasiJadwal is Map
+        ? lokasiJadwal['nama']?.toString() ?? 'Lokasi kerja'
+        : item['lokasi']?.toString() ??
+            'Kantor Pusat — Jl. Sudirman No. 45';
 
     return PopScope(
       canPop: onBack == null,

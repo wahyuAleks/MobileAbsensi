@@ -63,16 +63,19 @@ class _AdminDrawerState extends State<AdminDrawer> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold)),
+        title:
+            const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold)),
         content: const Text('Yakin ingin keluar dari akun Admin?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Batal', style: TextStyle(color: Color(0xFF6B7280))),
+            child:
+                const Text('Batal', style: TextStyle(color: Color(0xFF6B7280))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Logout', style: TextStyle(color: Color(0xFFDC2626))),
+            child: const Text('Logout',
+                style: TextStyle(color: Color(0xFFDC2626))),
           ),
         ],
       ),
@@ -96,7 +99,8 @@ class _AdminDrawerState extends State<AdminDrawer> {
       {'title': 'Rekap Absensi', 'icon': Icons.calendar_month_rounded},
       {'title': 'Persetujuan cuti', 'icon': Icons.assignment_rounded},
       {'title': 'Rekap laporan', 'icon': Icons.description_rounded},
-      {'title': 'Lokasi & Jam Masuk', 'icon': Icons.location_on_rounded},
+      {'title': 'Jadwal Karyawan', 'icon': Icons.calendar_month_rounded},
+      {'title': 'Master Jenis Kegiatan', 'icon': Icons.category_rounded},
     ];
 
     return Drawer(
@@ -182,7 +186,8 @@ class _AdminDrawerState extends State<AdminDrawer> {
                     },
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 14),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? Colors.white.withValues(alpha: 0.22)

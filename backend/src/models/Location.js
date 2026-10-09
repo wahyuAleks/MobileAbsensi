@@ -12,6 +12,19 @@ const Location = sequelize.define('Location', {
     allowNull: false,
     unique: true,
   },
+  latitude: {
+    type: DataTypes.DECIMAL(10, 7),
+    allowNull: true,
+  },
+  longitude: {
+    type: DataTypes.DECIMAL(10, 7),
+    allowNull: true,
+  },
+  radius_meters: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 250,
+  },
 }, {
   tableName: 'locations',
   timestamps: true,

@@ -165,27 +165,31 @@ class ApiService {
     required File foto,
     required double lat,
     required double lng,
+    required int jadwalId,
   }) =>
-      _uploadAbsen('masuk', foto, lat, lng);
+      _uploadAbsen('masuk', foto, lat, lng, jadwalId);
 
   static Future<Map<String, dynamic>> absenPulang({
     required File foto,
     required double lat,
     required double lng,
+    required int jadwalId,
   }) =>
-      _uploadAbsen('pulang', foto, lat, lng);
+      _uploadAbsen('pulang', foto, lat, lng, jadwalId);
 
   static Future<Map<String, dynamic>> _uploadAbsen(
     String jenis,
     File foto,
     double lat,
     double lng,
+    int jadwalId,
   ) async {
     final uri = Uri.parse('${AppConstants.baseUrl}/absensi/$jenis');
     final req = http.MultipartRequest('POST', uri);
     req.headers.addAll(await _headers(json: false));
     req.fields['lat'] = lat.toString();
     req.fields['lng'] = lng.toString();
+    req.fields['jadwal_id'] = jadwalId.toString();
     req.files.add(await http.MultipartFile.fromPath('foto', foto.path));
 
     final streamed = await req.send();
@@ -275,11 +279,61 @@ class ApiService {
   }
 
   // ---------- LAPORAN ----------
+  static Future<List<dynamic>> jenisKegiatanAktif() async {
+    final res = await http
+        .get(
+          Uri.parse('${AppConstants.baseUrl}/jenis-kegiatan'),
+          headers: await _headers(),
+        )
+        .timeout(const Duration(seconds: 15));
+    return _handleList(res);
+  }
+
+  static Future<List<dynamic>> jenisKegiatanAdmin() async {
+    final res = await http
+        .get(
+          Uri.parse('${AppConstants.baseUrl}/jenis-kegiatan'),
+          headers: await _headers(),
+        )
+        .timeout(const Duration(seconds: 15));
+    return _handleList(res);
+  }
+
+  static Future<Map<String, dynamic>> tambahJenisKegiatan(String nama) async {
+    final res = await http
+        .post(
+          Uri.parse('${AppConstants.baseUrl}/jenis-kegiatan'),
+          headers: await _headers(),
+          body: jsonEncode({'nama': nama}),
+        )
+        .timeout(const Duration(seconds: 15));
+    return _handle(res);
+  }
+
+  static Future<Map<String, dynamic>> perbaruiJenisKegiatan(
+    int id, {
+    String? nama,
+    required bool isActive,
+  }) async {
+    final res = await http
+        .put(
+          Uri.parse('${AppConstants.baseUrl}/jenis-kegiatan/$id'),
+          headers: await _headers(),
+          body: jsonEncode({
+            if (nama != null) 'nama': nama,
+            'is_active': isActive,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
+    return _handle(res);
+  }
+
   static Future<Map<String, dynamic>> submitLaporan({
     required String tanggal,
     required String judul,
     required String isiLaporan,
     String? jenisKegiatan,
+    int? jenisKegiatanId,
     String? lokasi,
     String? unitDrone,
     String? luasArea,
@@ -297,6 +351,8 @@ class ApiService {
         'judul': judul,
         'isi_laporan': isiLaporan,
         if (jenisKegiatan != null) 'jenis_kegiatan': jenisKegiatan,
+        if (jenisKegiatanId != null)
+          'jenis_kegiatan_id': jenisKegiatanId.toString(),
         if (lokasi != null) 'lokasi': lokasi,
         if (unitDrone != null) 'unit_drone': unitDrone,
         if (luasArea != null) 'luas_area': luasArea,
@@ -315,6 +371,7 @@ class ApiService {
     required String judul,
     required String isiLaporan,
     String? jenisKegiatan,
+    int? jenisKegiatanId,
     String? lokasi,
     String? unitDrone,
     String? luasArea,
@@ -331,6 +388,8 @@ class ApiService {
         'judul': judul,
         'isi_laporan': isiLaporan,
         if (jenisKegiatan != null) 'jenis_kegiatan': jenisKegiatan,
+        if (jenisKegiatanId != null)
+          'jenis_kegiatan_id': jenisKegiatanId.toString(),
         if (lokasi != null) 'lokasi': lokasi,
         if (unitDrone != null) 'unit_drone': unitDrone,
         if (luasArea != null) 'luas_area': luasArea,
@@ -348,6 +407,7 @@ class ApiService {
     required String judul,
     required String isiLaporan,
     String? jenisKegiatan,
+    int? jenisKegiatanId,
     String? lokasi,
     String? unitDrone,
     String? luasArea,
@@ -364,6 +424,8 @@ class ApiService {
         'judul': judul,
         'isi_laporan': isiLaporan,
         if (jenisKegiatan != null) 'jenis_kegiatan': jenisKegiatan,
+        if (jenisKegiatanId != null)
+          'jenis_kegiatan_id': jenisKegiatanId.toString(),
         if (lokasi != null) 'lokasi': lokasi,
         if (unitDrone != null) 'unit_drone': unitDrone,
         if (luasArea != null) 'luas_area': luasArea,
@@ -508,7 +570,19 @@ class ApiService {
   static Future<Map<String, dynamic>> simpanLokasi(
     String nama, {
     int? id,
+    double? latitude,
+    double? longitude,
+    int? radiusMeters,
   }) async {
+    if ((latitude == null) != (longitude == null)) {
+      throw ArgumentError('Latitude dan longitude harus diisi bersamaan.');
+    }
+    final body = <String, dynamic>{'nama': nama};
+    if (latitude != null && longitude != null) {
+      body['latitude'] = latitude;
+      body['longitude'] = longitude;
+      body['radius_meters'] = radiusMeters ?? 250;
+    }
     final uri = Uri.parse(
       id == null
           ? '${AppConstants.baseUrl}/lokasi'
@@ -516,12 +590,10 @@ class ApiService {
     );
     final res = id == null
         ? await http
-            .post(uri,
-                headers: await _headers(), body: jsonEncode({'nama': nama}))
+            .post(uri, headers: await _headers(), body: jsonEncode(body))
             .timeout(const Duration(seconds: 15))
         : await http
-            .put(uri,
-                headers: await _headers(), body: jsonEncode({'nama': nama}))
+            .put(uri, headers: await _headers(), body: jsonEncode(body))
             .timeout(const Duration(seconds: 15));
     return _handle(res);
   }
@@ -558,6 +630,88 @@ class ApiService {
           Uri.parse('${AppConstants.baseUrl}/lokasi/$id/jadwal'),
           headers: await _headers(),
           body: jsonEncode({'tanggal': tanggal, 'jam_masuk': jamMasuk}),
+        )
+        .timeout(const Duration(seconds: 15));
+    return _handle(res);
+  }
+
+  static Future<List<dynamic>> jadwalKerjaTanggal(String tanggal) async {
+    final uri = Uri.parse('${AppConstants.baseUrl}/jadwal-kerja')
+        .replace(queryParameters: {'tanggal': tanggal});
+    final res = await http
+        .get(uri, headers: await _headers())
+        .timeout(const Duration(seconds: 15));
+    return _handleList(res);
+  }
+
+  static Future<Map<String, dynamic>> simpanJadwalKerja({
+    int? id,
+    required int userId,
+    required int locationId,
+    required String tanggal,
+    required String jamMulai,
+    required String jamSelesai,
+  }) async {
+    final uri = Uri.parse(id == null
+        ? '${AppConstants.baseUrl}/jadwal-kerja'
+        : '${AppConstants.baseUrl}/jadwal-kerja/$id');
+    final body = jsonEncode({
+      'user_id': userId,
+      'location_id': locationId,
+      'tanggal': tanggal,
+      'jam_mulai': jamMulai,
+      'jam_selesai': jamSelesai,
+    });
+    final res = id == null
+        ? await http
+            .post(uri, headers: await _headers(), body: body)
+            .timeout(const Duration(seconds: 15))
+        : await http
+            .put(uri, headers: await _headers(), body: body)
+            .timeout(const Duration(seconds: 15));
+    return _handle(res);
+  }
+
+  static Future<Map<String, dynamic>> simpanJadwalKerjaUntukBanyakKaryawan({
+    required List<int> userIds,
+    required int locationId,
+    required String tanggal,
+    required String jamMulai,
+    required String jamSelesai,
+  }) async {
+    final res = await http
+        .post(
+          Uri.parse('${AppConstants.baseUrl}/jadwal-kerja/bulk'),
+          headers: await _headers(),
+          body: jsonEncode({
+            'user_ids': userIds,
+            'location_id': locationId,
+            'tanggal': tanggal,
+            'jam_mulai': jamMulai,
+            'jam_selesai': jamSelesai,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
+    final body = _handle(res);
+    if (body is Map<String, dynamic>) return body;
+    throw ApiException('Response penyimpanan jadwal tidak valid');
+  }
+
+  static Future<void> hapusJadwalKerja(int id) async {
+    final res = await http
+        .delete(
+          Uri.parse('${AppConstants.baseUrl}/jadwal-kerja/$id'),
+          headers: await _headers(),
+        )
+        .timeout(const Duration(seconds: 15));
+    _handle(res);
+  }
+
+  static Future<Map<String, dynamic>> jadwalKerjaHariIni() async {
+    final res = await http
+        .get(
+          Uri.parse('${AppConstants.baseUrl}/jadwal-kerja/saya/hari-ini'),
+          headers: await _headers(),
         )
         .timeout(const Duration(seconds: 15));
     return _handle(res);
