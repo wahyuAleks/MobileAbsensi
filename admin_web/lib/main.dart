@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'core/constants.dart';
 import 'core/session.dart';
-import 'core/notifikasi_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_web_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppConstants.initBaseUrl();
-  await NotifikasiService.init();
 
   final bool isLogin = await Session.sudahLogin();
   final String? role = await Session.getRole();
@@ -35,7 +33,7 @@ class AdminWebApp extends StatelessWidget {
           secondary: AppConstants.secondaryColor,
           surface: Colors.white,
         ),
-        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+        scaffoldBackgroundColor: AppConstants.bodyBg,
       ),
       home: isLoggedIn ? const DashboardWebScreen() : const LoginScreen(),
     );

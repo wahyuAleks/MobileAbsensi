@@ -38,9 +38,9 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF5F7FB),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -49,7 +49,10 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
               children: [
                 const Text(
                   'Rekapitulasi Laporan Harian Karyawan',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A)),
                 ),
                 ElevatedButton.icon(
                   onPressed: _muat,
@@ -58,14 +61,15 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppConstants.primaryColor,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 24),
-
             FutureBuilder<List<dynamic>>(
               future: _future,
               builder: (context, snap) {
@@ -77,7 +81,10 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: const Color(0xFFE2E8F0)),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2)),
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2)),
                     ],
                   ),
                   padding: const EdgeInsets.all(20),
@@ -85,17 +92,44 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
                     children: [
                       const Row(
                         children: [
-                          Expanded(flex: 2, child: Text('TANGGAL', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B), fontSize: 12))),
-                          Expanded(flex: 3, child: Text('KARYAWAN', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B), fontSize: 12))),
-                          Expanded(flex: 3, child: Text('JUDUL LAPORAN', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B), fontSize: 12))),
-                          Expanded(flex: 4, child: Text('ISI LAPORAN / RINGKASAN', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B), fontSize: 12))),
+                          Expanded(
+                              flex: 2,
+                              child: Text('TANGGAL',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF64748B),
+                                      fontSize: 12))),
+                          Expanded(
+                              flex: 3,
+                              child: Text('KARYAWAN',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF64748B),
+                                      fontSize: 12))),
+                          Expanded(
+                              flex: 3,
+                              child: Text('JUDUL LAPORAN',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF64748B),
+                                      fontSize: 12))),
+                          Expanded(
+                              flex: 4,
+                              child: Text('ISI LAPORAN / RINGKASAN',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF64748B),
+                                      fontSize: 12))),
                         ],
                       ),
                       const Divider(height: 24),
                       if (list.isEmpty)
                         const Padding(
                           padding: EdgeInsets.all(36),
-                          child: Center(child: Text('Belum ada laporan harian yang dikirimkan.', style: TextStyle(color: Colors.grey))),
+                          child: Center(
+                              child: Text(
+                                  'Belum ada laporan harian yang dikirimkan.',
+                                  style: TextStyle(color: Colors.grey))),
                         )
                       else
                         ListView.separated(
@@ -106,7 +140,8 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
                           itemBuilder: (context, i) {
                             final item = list[i];
                             final user = item['User'] ?? {};
-                            final nama = (user['nama'] ?? 'Karyawan').toString();
+                            final nama =
+                                (user['nama'] ?? 'Karyawan').toString();
                             final tgl = (item['tanggal'] ?? '-').toString();
                             final judul = (item['judul'] ?? '-').toString();
                             final isi = (item['isi_laporan'] ?? '-').toString();
@@ -115,10 +150,32 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               child: Row(
                                 children: [
-                                  Expanded(flex: 2, child: Text(tgl, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF475569)))),
-                                  Expanded(flex: 3, child: Text(nama, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A)))),
-                                  Expanded(flex: 3, child: Text(judul, style: const TextStyle(fontWeight: FontWeight.bold, color: AppConstants.primaryColor))),
-                                  Expanded(flex: 4, child: Text(isi, style: const TextStyle(color: Color(0xFF64748B)), maxLines: 2, overflow: TextOverflow.ellipsis)),
+                                  Expanded(
+                                      flex: 2,
+                                      child: Text(tgl,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF475569)))),
+                                  Expanded(
+                                      flex: 3,
+                                      child: Text(nama,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF0F172A)))),
+                                  Expanded(
+                                      flex: 3,
+                                      child: Text(judul,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color:
+                                                  AppConstants.primaryColor))),
+                                  Expanded(
+                                      flex: 4,
+                                      child: Text(isi,
+                                          style: const TextStyle(
+                                              color: Color(0xFF64748B)),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis)),
                                 ],
                               ),
                             );

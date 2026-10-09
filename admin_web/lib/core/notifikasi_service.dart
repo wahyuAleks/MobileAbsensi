@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
+
 import 'api_service.dart';
+import 'constants.dart';
 
 class NotifikasiItem {
   final String id;
@@ -25,39 +28,33 @@ class NotifikasiItem {
   });
 
   NotifikasiItem copyWith({
-    String? id,
-    String? tipe,
-    String? judul,
-    String? pesan,
-    String? waktu,
-    String? ctaText,
     bool? isRead,
-    Map<String, dynamic>? data,
   }) {
     return NotifikasiItem(
-      id: id ?? this.id,
-      tipe: tipe ?? this.tipe,
-      judul: judul ?? this.judul,
-      pesan: pesan ?? this.pesan,
-      waktu: waktu ?? this.waktu,
-      ctaText: ctaText ?? this.ctaText,
+      id: id,
+      tipe: tipe,
+      judul: judul,
+      pesan: pesan,
+      waktu: waktu,
+      ctaText: ctaText,
       isRead: isRead ?? this.isRead,
-      data: data ?? this.data,
+      data: data,
     );
   }
 }
 
 class NotifikasiService {
-  static const String _prefReadIdsKey = 'admin_web_notifikasi_read_ids';
-
-  static final ValueNotifier<List<NotifikasiItem>> itemsNotifier = ValueNotifier<List<NotifikasiItem>>([]);
+  static final ValueNotifier<List<NotifikasiItem>> itemsNotifier =
+      ValueNotifier<List<NotifikasiItem>>([]);
   static final ValueNotifier<int> unreadCountNotifier = ValueNotifier<int>(0);
+  static final ValueNotifier<bool> realtimeConnectedNotifier =
+      ValueNotifier<bool>(false);
+  static final ValueNotifier<String?> errorNotifier =
+      ValueNotifier<String?>(null);
 
+  static io.Socket? _socket;
+  static String? _activeToken;
   static bool _syncing = false;
-
-  static Future<void> init() async {
-    await syncFromBackend();
-  }
 
   static String formatWaktuRelatif(dynamic dateVal) {
     if (dateVal == null) return 'Baru saja';
@@ -81,78 +78,141 @@ class NotifikasiService {
     return DateFormat('dd MMM yyyy, HH:mm').format(dt);
   }
 
+  static Future<void> startRealtime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(AppConstants.prefKeyToken);
+    if (token == null || token.isEmpty) {
+      errorNotifier.value = 'Sesi admin tidak tersedia. Silakan login kembali.';
+      return;
+    }
+
+    await syncFromBackend();
+    if (_socket != null && _activeToken == token) return;
+
+    _socket?.dispose();
+    _activeToken = token;
+    realtimeConnectedNotifier.value = false;
+
+    final socket = io.io(
+      AppConstants.serverRoot,
+      io.OptionBuilder()
+          .setTransports(['websocket'])
+          .setAuth({'token': token})
+          .enableReconnection()
+          .disableAutoConnect()
+          .build(),
+    );
+    _socket = socket;
+
+    socket.onConnect((_) {
+      realtimeConnectedNotifier.value = true;
+      errorNotifier.value = null;
+      syncFromBackend();
+    });
+    socket.onDisconnect((_) {
+      realtimeConnectedNotifier.value = false;
+    });
+    socket.onConnectError((error) {
+      realtimeConnectedNotifier.value = false;
+      errorNotifier.value = 'Koneksi notifikasi terputus: $error';
+    });
+    socket.on('notifikasi_baru', (dynamic payload) {
+      if (payload is Map) {
+        _tambahkanNotifikasi(Map<String, dynamic>.from(payload));
+      }
+    });
+    socket.connect();
+  }
+
+  static void stopRealtime() {
+    _socket?.dispose();
+    _socket = null;
+    _activeToken = null;
+    realtimeConnectedNotifier.value = false;
+  }
+
   static Future<void> syncFromBackend() async {
     if (_syncing) return;
     _syncing = true;
-
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final localReadIds = (prefs.getStringList(_prefReadIdsKey) ?? []).toSet();
-
-      final List<NotifikasiItem> hasil = [];
-
-      try {
-        final serverNotifs = await ApiService.getNotifikasi();
-        for (final item in serverNotifs) {
-          final idStr = 'srv_${item['id']}';
-          final bool isReadDb = item['is_read'] == true;
-          final bool isRead = isReadDb || localReadIds.contains(idStr);
-
-          hasil.add(NotifikasiItem(
-            id: idStr,
-            tipe: item['tipe']?.toString() ?? 'info',
-            judul: item['judul']?.toString() ?? 'Pemberitahuan System',
-            pesan: item['pesan']?.toString() ?? '',
-            waktu: formatWaktuRelatif(item['createdAt']),
-            ctaText: item['cta_text']?.toString(),
-            isRead: isRead,
-          ));
-        }
-      } catch (_) {}
-
-      itemsNotifier.value = hasil;
+      final serverNotifs = await ApiService.getNotifikasi();
+      itemsNotifier.value = serverNotifs
+          .whereType<Map>()
+          .map((item) => _fromServer(Map<String, dynamic>.from(item)))
+          .toList();
       _updateUnreadCount();
-    } catch (_) {
-      _updateUnreadCount();
+      errorNotifier.value = null;
+    } catch (e) {
+      errorNotifier.value = 'Gagal memuat notifikasi: $e';
     } finally {
       _syncing = false;
     }
   }
 
+  static NotifikasiItem _fromServer(Map<String, dynamic> item) {
+    final data = item['data'];
+    final parsedData = data is Map ? Map<String, dynamic>.from(data) : null;
+    final isRead = item['is_read'] == true || item['is_read'] == 1;
+    return NotifikasiItem(
+      id: 'srv_${item['id']}',
+      tipe: item['tipe']?.toString() ?? 'info',
+      judul: item['judul']?.toString() ?? 'Pemberitahuan Sistem',
+      pesan: item['pesan']?.toString() ?? '',
+      waktu: formatWaktuRelatif(item['createdAt']),
+      ctaText: item['cta_text']?.toString(),
+      isRead: isRead,
+      data: parsedData,
+    );
+  }
+
+  static void _tambahkanNotifikasi(Map<String, dynamic> payload) {
+    final notification = _fromServer(payload);
+    final updated = [
+      notification,
+      ...itemsNotifier.value.where((item) => item.id != notification.id),
+    ];
+    itemsNotifier.value = updated.take(50).toList();
+    _updateUnreadCount();
+  }
+
   static void _updateUnreadCount() {
-    final unread = itemsNotifier.value.where((it) => !it.isRead).length;
-    unreadCountNotifier.value = unread;
+    unreadCountNotifier.value =
+        itemsNotifier.value.where((item) => !item.isRead).length;
   }
 
   static Future<void> markAsRead(String id) async {
-    final currentList = itemsNotifier.value;
-    final updatedList = currentList.map((item) {
-      if (item.id == id) return item.copyWith(isRead: true);
-      return item;
-    }).toList();
+    final numericId = int.tryParse(id.replaceFirst('srv_', ''));
+    if (numericId == null) return;
 
-    itemsNotifier.value = updatedList;
+    final previousItems = itemsNotifier.value;
+    itemsNotifier.value = previousItems
+        .map((item) => item.id == id ? item.copyWith(isRead: true) : item)
+        .toList();
     _updateUnreadCount();
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final readIds = (prefs.getStringList(_prefReadIdsKey) ?? []).toSet();
-      readIds.add(id);
-      await prefs.setStringList(_prefReadIdsKey, readIds.toList());
-    } catch (_) {}
+      await ApiService.tandaiNotifikasiDibaca(numericId);
+      errorNotifier.value = null;
+    } catch (e) {
+      itemsNotifier.value = previousItems;
+      _updateUnreadCount();
+      errorNotifier.value = 'Gagal menandai notifikasi sebagai dibaca: $e';
+    }
   }
 
   static Future<void> markAllAsRead() async {
-    final currentList = itemsNotifier.value;
-    final updatedList = currentList.map((item) => item.copyWith(isRead: true)).toList();
-
-    itemsNotifier.value = updatedList;
+    final previousItems = itemsNotifier.value;
+    itemsNotifier.value =
+        previousItems.map((item) => item.copyWith(isRead: true)).toList();
     _updateUnreadCount();
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final allIds = updatedList.map((e) => e.id).toList();
-      await prefs.setStringList(_prefReadIdsKey, allIds);
-    } catch (_) {}
+      await ApiService.tandaiSemuaNotifikasiDibaca();
+      errorNotifier.value = null;
+    } catch (e) {
+      itemsNotifier.value = previousItems;
+      _updateUnreadCount();
+      errorNotifier.value = 'Gagal menandai semua notifikasi sebagai dibaca: $e';
+    }
   }
 }

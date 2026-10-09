@@ -7,7 +7,7 @@ class AppConstants {
   static const Color sidebarBg = Color(0xFF4C58A5);
   static const Color secondaryColor = Color(0xFF488286);
   
-  static const Color bodyBg = Color(0xFFF9FAFB);
+  static const Color bodyBg = Color(0xFFF5F7FB);
   static const Color cardBg = Color(0xFFF3F4F6);
 
   // URL Presets untuk Web

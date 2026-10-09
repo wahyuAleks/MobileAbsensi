@@ -2,8 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const http = require('http');
 
 const sequelize = require('./src/config/db');
+const { initializeRealtime } = require('./src/services/realtime');
 
 // models (perlu di-require supaya asosiasi & sync jalan)
 require('./src/models/User');
@@ -23,6 +25,7 @@ const notifikasiRoutes = require('./src/routes/notifikasiRoutes');
 const locationRoutes = require('./src/routes/locationRoutes');
 
 const app = express();
+const server = http.createServer(app);
 
 app.use(cors());
 app.use(express.json());
@@ -253,7 +256,8 @@ async function startServer() {
     await seedDefaultLocations();
     await seedDefaultUsers();
     await syncExistingCutiNotifications();
-    app.listen(PORT, '0.0.0.0', () => {
+    initializeRealtime(server);
+    server.listen(PORT, '0.0.0.0', () => {
       console.log(`✓ Server jalan di port ${PORT} (http://0.0.0.0:${PORT})`);
       tryAdbReverse(PORT);
     });

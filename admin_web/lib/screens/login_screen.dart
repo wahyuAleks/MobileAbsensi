@@ -15,7 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController(text: 'admin@mail.com');
   final _passCtrl = TextEditingController(text: 'admin123');
   final _serverUrlCtrl = TextEditingController();
-  
+
   bool _loading = false;
   bool _hidePass = true;
   String? _errorMsg;
@@ -101,11 +101,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   ActionChip(
                     label: const Text('localhost:3000'),
-                    onPressed: () => _serverUrlCtrl.text = AppConstants.urlLocalhost,
+                    onPressed: () =>
+                        _serverUrlCtrl.text = AppConstants.urlLocalhost,
                   ),
                   ActionChip(
                     label: const Text('127.0.0.1:3000'),
-                    onPressed: () => _serverUrlCtrl.text = AppConstants.urlIpLocal,
+                    onPressed: () =>
+                        _serverUrlCtrl.text = AppConstants.urlIpLocal,
                   ),
                 ],
               ),
@@ -122,7 +124,9 @@ class _LoginScreenState extends State<LoginScreen> {
               await AppConstants.setBaseUrl(_serverUrlCtrl.text);
               if (mounted) Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('URL Server disimpan: ${AppConstants.baseUrl}')),
+                SnackBar(
+                    content:
+                        Text('URL Server disimpan: ${AppConstants.baseUrl}')),
               );
             },
             child: const Text('Simpan'),
@@ -135,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFFF5F7FB),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -143,16 +147,16 @@ class _LoginScreenState extends State<LoginScreen> {
             width: 440,
             padding: const EdgeInsets.all(36),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
-              borderRadius: BorderRadius.circular(24),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.4),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
                 ),
               ],
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
+              border: Border.all(color: const Color(0xFFE1E4E8)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -168,12 +172,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: AppConstants.primaryColor.withOpacity(0.5),
+                          color: AppConstants.primaryColor.withValues(alpha: 0.5),
                           blurRadius: 16,
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.admin_panel_settings_rounded, color: Colors.white, size: 36),
+                    child: const Icon(Icons.admin_panel_settings_rounded,
+                        color: Colors.white, size: 36),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -181,7 +186,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   'Admin Web Portal',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: const Color(0xFF111827),
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
@@ -190,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Text(
                   'Aplikasi Absensi & Manajemen Karyawan',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                  style: TextStyle(color: Color(0xFF6B7280), fontSize: 13),
                 ),
                 const SizedBox(height: 28),
 
@@ -198,16 +203,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF7F1D1D),
+                      color: const Color(0xFFFEF2F2),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFEF4444)),
+                      border: Border.all(color: const Color(0xFFFECACA)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                        const Icon(Icons.error_outline,
+                            color: Color(0xFFDC2626), size: 20),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Text(_errorMsg!, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                          child: Text(_errorMsg!,
+                              style: const TextStyle(
+                                  color: Color(0xFF991B1B), fontSize: 13)),
                         ),
                       ],
                     ),
@@ -216,38 +224,64 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
 
                 // Form Email
-                const Text('Email Admin', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
+                const Text('Email Admin',
+                    style: TextStyle(
+                        color: Color(0xFF374151),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _emailCtrl,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Color(0xFF111827)),
                   decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.email_outlined, color: Colors.white54),
+                    prefixIcon: const Icon(Icons.email_outlined,
+                        color: Color(0xFF6B7280)),
                     hintText: 'admin@mail.com',
-                    hintStyle: const TextStyle(color: Colors.white38),
+                    hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
                     filled: true,
-                    fillColor: const Color(0xFF0F172A),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    fillColor: const Color(0xFFF9FAFB),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
 
                 // Form Password
-                const Text('Password', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
+                const Text('Password',
+                    style: TextStyle(
+                        color: Color(0xFF374151),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _passCtrl,
                   obscureText: _hidePass,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Color(0xFF111827)),
                   decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.lock_outline, color: Colors.white54),
+                    prefixIcon: const Icon(Icons.lock_outline,
+                        color: Color(0xFF6B7280)),
                     suffixIcon: IconButton(
-                      icon: Icon(_hidePass ? Icons.visibility_off : Icons.visibility, color: Colors.white54),
+                      icon: Icon(
+                          _hidePass ? Icons.visibility_off : Icons.visibility,
+                          color: const Color(0xFF6B7280)),
                       onPressed: () => setState(() => _hidePass = !_hidePass),
                     ),
                     filled: true,
-                    fillColor: const Color(0xFF0F172A),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    fillColor: const Color(0xFFF9FAFB),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -258,11 +292,20 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppConstants.primaryColor,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   child: _loading
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Masuk Dashboard Admin', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
+                      : const Text('Masuk Dashboard Admin',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(height: 20),
 
@@ -270,8 +313,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 Center(
                   child: TextButton.icon(
                     onPressed: _showServerSettings,
-                    icon: const Icon(Icons.dns_rounded, size: 18, color: Colors.white60),
-                    label: const Text('Pengaturan Server URL', style: TextStyle(color: Colors.white60, fontSize: 13)),
+                    icon: const Icon(Icons.dns_rounded,
+                        size: 18, color: Color(0xFF6B7280)),
+                    label: const Text('Pengaturan Server URL',
+                        style:
+                            TextStyle(color: Color(0xFF6B7280), fontSize: 13)),
                   ),
                 ),
               ],
