@@ -1,6 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
 const User = require('./User');
+const WorkAssignment = require('./WorkAssignment');
 
 const Absensi = sequelize.define('Absensi', {
   id: {
@@ -16,7 +17,12 @@ const Absensi = sequelize.define('Absensi', {
     type: DataTypes.DATEONLY,
     allowNull: false,
   },
+  work_assignment_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
   jam_masuk: DataTypes.TIME,
+  jam_masuk_target: DataTypes.TIME,
   jam_pulang: DataTypes.TIME,
   foto_masuk: DataTypes.STRING,
   foto_pulang: DataTypes.STRING,
@@ -36,5 +42,15 @@ const Absensi = sequelize.define('Absensi', {
 
 Absensi.belongsTo(User, { foreignKey: 'user_id' });
 User.hasMany(Absensi, { foreignKey: 'user_id' });
+Absensi.belongsTo(WorkAssignment, {
+  as: 'jadwal_kerja',
+  foreignKey: 'work_assignment_id',
+  onDelete: 'SET NULL',
+});
+WorkAssignment.hasMany(Absensi, {
+  as: 'absensi',
+  foreignKey: 'work_assignment_id',
+  onDelete: 'SET NULL',
+});
 
 module.exports = Absensi;

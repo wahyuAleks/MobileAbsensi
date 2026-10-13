@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
+const Location = require('./Location');
 
 const User = sequelize.define('User', {
   id: {
@@ -29,6 +30,10 @@ const User = sequelize.define('User', {
   jabatan: DataTypes.STRING,
   no_hp: DataTypes.STRING,
   foto_profil: DataTypes.STRING,
+  location_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
   is_active: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
@@ -37,5 +42,8 @@ const User = sequelize.define('User', {
   tableName: 'users',
   timestamps: true,
 });
+
+User.belongsTo(Location, { foreignKey: 'location_id' });
+Location.hasMany(User, { foreignKey: 'location_id' });
 
 module.exports = User;

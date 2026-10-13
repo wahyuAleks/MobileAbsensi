@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../core/constants.dart';
 
 /// Halaman Detail Laporan Karyawan
 /// Dibuat persis 100% sesuai screenshot desain Figma yang dikirimkan user:
@@ -44,6 +46,21 @@ class DetailLaporanScreen extends StatelessWidget {
         'Penyemprotan 100% selesai. Tidak ada kendala signifikan.';
     final rencanaEsok = item['rencana_esok']?.toString() ??
         'Penyemprotan Blok B — 5 Ha dengan drone DA-002.';
+    // Parse lampiran: JSON array (multi-photo) or plain string (single)
+    final lampiranRaw = item['lampiran']?.toString();
+    final List<String> lampiranList = [];
+    if (lampiranRaw != null && lampiranRaw.isNotEmpty) {
+      if (lampiranRaw.startsWith('[')) {
+        try {
+          final decoded = jsonDecode(lampiranRaw) as List;
+          lampiranList.addAll(decoded.map((e) => e.toString()));
+        } catch (_) {
+          lampiranList.add(lampiranRaw);
+        }
+      } else {
+        lampiranList.add(lampiranRaw);
+      }
+    }
 
     return PopScope(
       canPop: onBack == null,
@@ -270,6 +287,101 @@ class DetailLaporanScreen extends StatelessWidget {
                         ],
                       ),
                     ),
+                    if (lampiranList.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F3F3),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Text(
+                                  'DOKUMENTASI KEGIATAN LAPANGAN',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF6B7280),
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const Spacer(),
+                                if (lampiranList.length > 1)
+                                  Text(
+                                    '${lampiranList.length} foto',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF9CA3AF),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            if (lampiranList.length == 1)
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  AppConstants.getImageUrl(lampiranList.first)!,
+                                width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: Text(
+                                        'Foto dokumentasi tidak dapat dimuat.'),
+                                  ),
+                                ),
+                              )
+                            else
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: lampiranList.map((path) {
+                                  final url = AppConstants.getImageUrl(path);
+                                  return GestureDetector(
+                                    onTap: () => _tampilkanFotoPenuh(context, url),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: url != null
+                                          ? Image.network(
+                                              url,
+                                              width: 100,
+                                              height: 100,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) =>
+                                                  const SizedBox(
+                                                width: 100,
+                                                height: 100,
+                                                child: Center(
+                                                  child: Icon(
+                                                      Icons
+                                                          .broken_image_outlined,
+                                                      color:
+                                                          Color(0xFF9CA3AF)),
+                                                ),
+                                              ),
+                                            )
+                                          : const SizedBox(
+                                              width: 100,
+                                              height: 100,
+                                              child: Center(
+                                                child: Icon(
+                                                    Icons.broken_image_outlined,
+                                                    color: Color(0xFF9CA3AF)),
+                                              ),
+                                            ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -280,7 +392,49 @@ class DetailLaporanScreen extends StatelessWidget {
     );
   }
 
+  void _tampilkanFotoPenuh(BuildContext context, String? url) {
+    if (url == null) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => GestureDetector(
+        onTap: () => Navigator.pop(ctx),
+        child: Dialog(
+          backgroundColor: Colors.black87,
+          insetPadding: EdgeInsets.zero,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Center(
+                child: InteractiveViewer(
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Center(
+                      child: Text(
+                        'Foto tidak dapat dimuat.',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 40,
+                right: 16,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDetailRow(String label, String value) {
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(

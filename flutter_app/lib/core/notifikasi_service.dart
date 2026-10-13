@@ -187,7 +187,7 @@ class NotifikasiService {
           id: idStr,
           tipe: 'absen',
           judul: 'Waktunya Absensi Pagi!',
-          pesan: 'Batas jam masuk kantor adalah pukul 08:00 WIB. Segera lakukan presensi kehadiran dengan verifikasi wajah & lokasi.',
+          pesan: 'Batas jam masuk mengikuti jadwal lokasi kerja hari ini. Segera lakukan presensi kehadiran dengan verifikasi wajah & lokasi.',
           waktu: 'Hari ini',
           ctaText: 'Buka Halaman Absensi →',
           data: {'isMasuk': true},

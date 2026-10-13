@@ -84,6 +84,8 @@ class _AdminSidebarState extends State<AdminSidebar> {
       {'title': 'Rekap Absensi', 'icon': Icons.calendar_month_rounded},
       {'title': 'Persetujuan cuti', 'icon': Icons.assignment_rounded},
       {'title': 'Rekap laporan', 'icon': Icons.description_rounded},
+      {'title': 'Jadwal Karyawan', 'icon': Icons.event_note_rounded},
+      {'title': 'Master Jenis Kegiatan', 'icon': Icons.category_rounded},
     ];
 
     return Container(

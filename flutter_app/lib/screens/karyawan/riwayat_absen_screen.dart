@@ -11,7 +11,13 @@ import '../../core/app_events.dart';
 /// - Tab 1: Pengajuan Cuti (Ringkasan kuota, tombol ajukan cuti baru, filter status persetujuan, daftar pengajuan cuti)
 class RiwayatAbsenScreen extends StatefulWidget {
   final int initialTab;
-  const RiwayatAbsenScreen({super.key, this.initialTab = 0});
+  final VoidCallback? onBack;
+
+  const RiwayatAbsenScreen({
+    super.key,
+    this.initialTab = 0,
+    this.onBack,
+  });
 
   @override
   State<RiwayatAbsenScreen> createState() => _RiwayatAbsenScreenState();
@@ -22,14 +28,16 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
 
   // State untuk Tab Absensi
   final TextEditingController _searchCtrl = TextEditingController();
-  String _selectedFilter = 'Semua'; // 'Semua', 'Hadir', 'Terlambat', 'Izin Cuti'
+  String _selectedFilter =
+      'Semua'; // 'Semua', 'Hadir', 'Terlambat', 'Izin Cuti'
   bool _loading = true;
   List<Map<String, dynamic>> _listRiwayat = [];
   Map<String, dynamic>? _riwayatTerpilih;
 
   // State untuk Tab Cuti
   bool _loadingCuti = false;
-  String _selectedCutiFilter = 'Semua'; // 'Semua', 'Menunggu', 'Disetujui', 'Ditolak'
+  String _selectedCutiFilter =
+      'Semua'; // 'Semua', 'Menunggu', 'Disetujui', 'Ditolak'
   List<Map<String, dynamic>> _listCuti = [];
 
   // Data demo fallback untuk absensi jika belum ada data server
@@ -172,8 +180,29 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
         String bulan = 'BLN';
 
         if (dt != null) {
-          const hariList = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-          const bulanList = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEP', 'OKT', 'NOV', 'DES'];
+          const hariList = [
+            'Senin',
+            'Selasa',
+            'Rabu',
+            'Kamis',
+            'Jumat',
+            'Sabtu',
+            'Minggu'
+          ];
+          const bulanList = [
+            'JAN',
+            'FEB',
+            'MAR',
+            'APR',
+            'MEI',
+            'JUN',
+            'JUL',
+            'AGU',
+            'SEP',
+            'OKT',
+            'NOV',
+            'DES'
+          ];
           hari = hariList[dt.weekday - 1];
           tgl = dt.day.toString().padLeft(2, '0');
           bulan = bulanList[dt.month - 1];
@@ -189,14 +218,20 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
         final rawSt = (item['status'] ?? '').toString().toLowerCase();
         if (rawSt.contains('cuti') || rawSt.contains('izin')) {
           status = 'Izin Cuti';
+        } else if (rawSt == 'telat' || rawSt.contains('terlambat')) {
+          status = 'Terlambat';
         } else if (jamMsk != '—') {
-          // Peraturan jam masuk 08:00 WIB
+          final jamTargetRaw =
+              (item['jam_masuk_target'] ?? '08:00:00').toString();
+          final target = jamTargetRaw.split(':');
           final parts = jamMsk.split(':');
-          final jamInt = int.tryParse(parts.first) ?? 0;
-          final menitInt = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
-          if (jamInt > 8 || (jamInt == 8 && menitInt > 0)) {
+          final actualMinutes = (int.tryParse(parts.first) ?? 0) * 60 +
+              (int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0);
+          final targetMinutes = (int.tryParse(target.first) ?? 8) * 60 +
+              (int.tryParse(target.length > 1 ? target[1] : '0') ?? 0);
+          if (actualMinutes > targetMinutes) {
             status = 'Terlambat';
-          } else if (jamInt < 8) {
+          } else if (actualMinutes < targetMinutes) {
             status = 'Datang Lebih Awal';
           } else {
             status = 'Tepat Waktu';
@@ -213,6 +248,7 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
           'status': status,
           'jam_masuk': jamMsk,
           'jam_pulang': jamPlg,
+          'jam_masuk_target': item['jam_masuk_target'],
           'foto_masuk': item['foto_masuk'],
           'foto_pulang': item['foto_pulang'],
           'lat_masuk': item['lat_masuk'],
@@ -260,7 +296,8 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
           'durasi': '${it['durasi'] ?? 1} hari',
           'status': statusDisplay,
           'alasan': it['alasan'],
-          'alasan_tolak': it['catatan_admin'] != null && it['catatan_admin'].toString().isNotEmpty
+          'alasan_tolak': it['catatan_admin'] != null &&
+                  it['catatan_admin'].toString().isNotEmpty
               ? 'Alasan penolakan: ${it['catatan_admin']}'
               : null,
         });
@@ -302,10 +339,13 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
     if (status.toLowerCase().contains('terlambat')) {
       bg = const Color(0xFFFFEDD5);
       textColor = const Color(0xFFEA580C);
-    } else if (status.toLowerCase().contains('cuti') || status.toLowerCase().contains('izin')) {
+    } else if (status.toLowerCase().contains('cuti') ||
+        status.toLowerCase().contains('izin')) {
       bg = const Color(0xFFE0E7FF);
       textColor = const Color(0xFF4338CA);
-    } else if (status.toLowerCase().contains('awal') || status.toLowerCase().contains('tepat') || status.toLowerCase().contains('hadir')) {
+    } else if (status.toLowerCase().contains('awal') ||
+        status.toLowerCase().contains('tepat') ||
+        status.toLowerCase().contains('hadir')) {
       bg = const Color(0xFFDCFCE7);
       textColor = const Color(0xFF16A34A);
     }
@@ -329,7 +369,8 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
 
   Widget _buildPulangPill(bool sudahPulang) {
     final bg = sudahPulang ? const Color(0xFFE0F2FE) : const Color(0xFFF3F4F6);
-    final textColor = sudahPulang ? const Color(0xFF0284C7) : const Color(0xFF9CA3AF);
+    final textColor =
+        sudahPulang ? const Color(0xFF0284C7) : const Color(0xFF9CA3AF);
     final text = sudahPulang ? 'Sudah Pulang' : 'Belum Pulang';
 
     return Container(
@@ -342,7 +383,9 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            sudahPulang ? Icons.check_circle_rounded : Icons.access_time_rounded,
+            sudahPulang
+                ? Icons.check_circle_rounded
+                : Icons.access_time_rounded,
             size: 11,
             color: textColor,
           ),
@@ -382,27 +425,50 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Riwayat',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF111827),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        if (widget.onBack != null) ...[
+                          IconButton(
+                            tooltip: 'Kembali ke halaman sebelumnya',
+                            onPressed: widget.onBack,
+                            icon: const Icon(Icons.arrow_back_rounded),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                                minWidth: 40, minHeight: 40),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Riwayat',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF111827),
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Catatan presensi harian & permohonan cuti',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 12.5, color: Color(0xFF6B7280)),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Catatan presensi harian & permohonan cuti',
-                        style: TextStyle(fontSize: 12.5, color: Color(0xFF6B7280)),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   // Tombol Refresh Cepat
                   IconButton(
-                    icon: const Icon(Icons.refresh_rounded, color: Color(0xFF4F5BA8)),
+                    icon: const Icon(Icons.refresh_rounded,
+                        color: Color(0xFF4F5BA8)),
                     tooltip: 'Segarkan Data',
                     onPressed: () {
                       _muatData();
@@ -431,7 +497,9 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         decoration: BoxDecoration(
-                          color: _selectedMainTab == 0 ? Colors.white : Colors.transparent,
+                          color: _selectedMainTab == 0
+                              ? Colors.white
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: _selectedMainTab == 0
                               ? [
@@ -450,15 +518,21 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
                             Icon(
                               Icons.access_time_filled_rounded,
                               size: 16,
-                              color: _selectedMainTab == 0 ? const Color(0xFF4F5BA8) : const Color(0xFF6B7280),
+                              color: _selectedMainTab == 0
+                                  ? const Color(0xFF4F5BA8)
+                                  : const Color(0xFF6B7280),
                             ),
                             const SizedBox(width: 8),
                             Text(
                               'Absensi Harian',
                               style: TextStyle(
                                 fontSize: 13.5,
-                                fontWeight: _selectedMainTab == 0 ? FontWeight.bold : FontWeight.w600,
-                                color: _selectedMainTab == 0 ? const Color(0xFF4F5BA8) : const Color(0xFF6B7280),
+                                fontWeight: _selectedMainTab == 0
+                                    ? FontWeight.bold
+                                    : FontWeight.w600,
+                                color: _selectedMainTab == 0
+                                    ? const Color(0xFF4F5BA8)
+                                    : const Color(0xFF6B7280),
                               ),
                             ),
                           ],
@@ -475,7 +549,9 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         decoration: BoxDecoration(
-                          color: _selectedMainTab == 1 ? Colors.white : Colors.transparent,
+                          color: _selectedMainTab == 1
+                              ? Colors.white
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: _selectedMainTab == 1
                               ? [
@@ -494,15 +570,21 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
                             Icon(
                               Icons.event_note_rounded,
                               size: 16,
-                              color: _selectedMainTab == 1 ? const Color(0xFF4F5BA8) : const Color(0xFF6B7280),
+                              color: _selectedMainTab == 1
+                                  ? const Color(0xFF4F5BA8)
+                                  : const Color(0xFF6B7280),
                             ),
                             const SizedBox(width: 8),
                             Text(
                               'Pengajuan Cuti',
                               style: TextStyle(
                                 fontSize: 13.5,
-                                fontWeight: _selectedMainTab == 1 ? FontWeight.bold : FontWeight.w600,
-                                color: _selectedMainTab == 1 ? const Color(0xFF4F5BA8) : const Color(0xFF6B7280),
+                                fontWeight: _selectedMainTab == 1
+                                    ? FontWeight.bold
+                                    : FontWeight.w600,
+                                color: _selectedMainTab == 1
+                                    ? const Color(0xFF4F5BA8)
+                                    : const Color(0xFF6B7280),
                               ),
                             ),
                           ],
@@ -551,19 +633,29 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
     final filtered = _listRiwayat.where((item) {
       final st = (item['status'] ?? '').toString();
       final jp = (item['jam_pulang'] ?? '').toString();
-      if (_selectedFilter == 'Hadir' && !st.toLowerCase().contains('hadir') && !st.toLowerCase().contains('awal') && !st.toLowerCase().contains('tepat')) {
+      if (_selectedFilter == 'Hadir' &&
+          !st.toLowerCase().contains('hadir') &&
+          !st.toLowerCase().contains('awal') &&
+          !st.toLowerCase().contains('tepat')) {
         return false;
       }
-      if (_selectedFilter == 'Sudah Pulang' && (jp.isEmpty || jp == '—')) return false;
-      if (_selectedFilter == 'Terlambat' && !st.toLowerCase().contains('terlambat')) return false;
-      if (_selectedFilter == 'Izin Cuti' && (!st.toLowerCase().contains('cuti') && !st.toLowerCase().contains('izin'))) return false;
+      if (_selectedFilter == 'Sudah Pulang' && (jp.isEmpty || jp == '—'))
+        return false;
+      if (_selectedFilter == 'Terlambat' &&
+          !st.toLowerCase().contains('terlambat')) return false;
+      if (_selectedFilter == 'Izin Cuti' &&
+          (!st.toLowerCase().contains('cuti') &&
+              !st.toLowerCase().contains('izin'))) return false;
 
       if (query.isNotEmpty) {
         final tgl = (item['tanggal'] ?? '').toString().toLowerCase();
         final hari = (item['hari'] ?? '').toString().toLowerCase();
         final tglNo = (item['tgl'] ?? '').toString().toLowerCase();
         final bln = (item['bulan'] ?? '').toString().toLowerCase();
-        return tgl.contains(query) || hari.contains(query) || tglNo.contains(query) || bln.contains(query);
+        return tgl.contains(query) ||
+            hari.contains(query) ||
+            tglNo.contains(query) ||
+            bln.contains(query);
       }
       return true;
     }).toList();
@@ -582,17 +674,42 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: const Color(0xFFD1D5DB), width: 1.2),
               ),
-              child: TextField(
-                controller: _searchCtrl,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13.5, color: Color(0xFF111827)),
-                decoration: const InputDecoration(
-                  hintText: 'Cari tanggal absensi...',
-                  hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                  prefixIcon: Icon(Icons.search, size: 18, color: Color(0xFF9CA3AF)),
-                ),
+              child: Stack(
+                alignment: Alignment.center,
+                fit: StackFit.expand,
+                children: [
+                  TextField(
+                    controller: _searchCtrl,
+                    textAlign: TextAlign.center,
+                    textAlignVertical: TextAlignVertical.center,
+                    minLines: 1,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      color: Color(0xFF111827),
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'Cari tanggal absensi...',
+                      hintStyle: TextStyle(
+                        color: Color(0xFF9CA3AF),
+                        fontSize: 13,
+                      ),
+                      isCollapsed: true,
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const Positioned(
+                    left: 12,
+                    child: IgnorePointer(
+                      child: Icon(
+                        Icons.search,
+                        size: 18,
+                        color: Color(0xFF9CA3AF),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -689,9 +806,12 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
   Widget _buildCutiContent() {
     final filteredCuti = _listCuti.where((item) {
       final st = (item['status'] ?? '').toString().toLowerCase();
-      if (_selectedCutiFilter == 'Menunggu' && !st.contains('menunggu')) return false;
-      if (_selectedCutiFilter == 'Disetujui' && !st.contains('disetujui')) return false;
-      if (_selectedCutiFilter == 'Ditolak' && !st.contains('ditolak')) return false;
+      if (_selectedCutiFilter == 'Menunggu' && !st.contains('menunggu'))
+        return false;
+      if (_selectedCutiFilter == 'Disetujui' && !st.contains('disetujui'))
+        return false;
+      if (_selectedCutiFilter == 'Ditolak' && !st.contains('ditolak'))
+        return false;
       return true;
     }).toList();
 
@@ -717,7 +837,8 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
                       color: Color(0xFF4F5BA8),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.date_range_rounded, color: Colors.white, size: 20),
+                    child: const Icon(Icons.date_range_rounded,
+                        color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
@@ -749,8 +870,10 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
                       backgroundColor: const Color(0xFF4F5BA8),
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: _bukaFormPengajuanCuti,
                     child: const Row(
@@ -758,7 +881,9 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
                       children: [
                         Icon(Icons.add, size: 16),
                         SizedBox(width: 4),
-                        Text('Ajukan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        Text('Ajukan',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13)),
                       ],
                     ),
                   ),
@@ -983,7 +1108,8 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
                           ),
                           _buildStatusPill(item['status'] ?? 'Hadir'),
                           if ((item['status'] ?? '') != 'Izin Cuti')
-                            _buildPulangPill(item['jam_pulang'] != null && item['jam_pulang'] != '—'),
+                            _buildPulangPill(item['jam_pulang'] != null &&
+                                item['jam_pulang'] != '—'),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -993,7 +1119,8 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.login_rounded, size: 13, color: Color(0xFF16A34A)),
+                              const Icon(Icons.login_rounded,
+                                  size: 13, color: Color(0xFF16A34A)),
                               const SizedBox(width: 4),
                               Text(
                                 '${item['jam_masuk']}',
@@ -1013,19 +1140,22 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
                               Icon(
                                 Icons.logout_rounded,
                                 size: 13,
-                                color: (item['jam_pulang'] != null && item['jam_pulang'] != '—')
+                                color: (item['jam_pulang'] != null &&
+                                        item['jam_pulang'] != '—')
                                     ? const Color(0xFF0284C7)
                                     : const Color(0xFF9CA3AF),
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                (item['jam_pulang'] != null && item['jam_pulang'] != '—')
+                                (item['jam_pulang'] != null &&
+                                        item['jam_pulang'] != '—')
                                     ? '${item['jam_pulang']}'
                                     : 'Belum Pulang',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
-                                  color: (item['jam_pulang'] != null && item['jam_pulang'] != '—')
+                                  color: (item['jam_pulang'] != null &&
+                                          item['jam_pulang'] != '—')
                                       ? const Color(0xFF1F2937)
                                       : const Color(0xFF9CA3AF),
                                 ),
@@ -1101,7 +1231,8 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: badgeBg,
                   borderRadius: BorderRadius.circular(12),
@@ -1129,11 +1260,15 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
           // Periode & Durasi
           Row(
             children: [
-              const Icon(Icons.date_range_outlined, size: 15, color: Color(0xFF6B7280)),
+              const Icon(Icons.date_range_outlined,
+                  size: 15, color: Color(0xFF6B7280)),
               const SizedBox(width: 6),
               Text(
                 item['periode'] ?? '',
-                style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563), fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF4B5563),
+                    fontWeight: FontWeight.w500),
               ),
               const SizedBox(width: 12),
               Container(
@@ -1144,18 +1279,25 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
                 ),
                 child: Text(
                   item['durasi'] ?? '',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF374151)),
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF374151)),
                 ),
               ),
             ],
           ),
 
           // Alasan Cuti Karyawan
-          if (item['alasan'] != null && item['alasan'].toString().isNotEmpty) ...[
+          if (item['alasan'] != null &&
+              item['alasan'].toString().isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
               'Alasan: ${item['alasan']}',
-              style: const TextStyle(fontSize: 12.5, color: Color(0xFF6B7280), fontStyle: FontStyle.italic),
+              style: const TextStyle(
+                  fontSize: 12.5,
+                  color: Color(0xFF6B7280),
+                  fontStyle: FontStyle.italic),
             ),
           ],
 

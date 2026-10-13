@@ -4,14 +4,16 @@ import '../../core/constants.dart';
 import '../../core/session.dart';
 import '../../core/notifikasi_service.dart';
 import '../../core/app_events.dart';
-import 'absensi_screen.dart';
+import 'jadwal_absensi_screen.dart';
 import 'riwayat_absen_screen.dart';
 import 'laporan_screen.dart';
 import 'pengajuan_cuti_screen.dart';
 import 'components/notifikasi_karyawan_popup.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final VoidCallback? onOpenAbsensi;
+
+  const HomeScreen({super.key, this.onOpenAbsensi});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -23,6 +25,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _fotoProfil;
   String? _jamMasuk;
   String? _jamPulang;
+  List<Map<String, dynamic>> _jadwalHariIni = [];
+  String? _jadwalError;
 
   int _countHadir = 14;
   int _countTerlambat = 2;
@@ -52,9 +56,35 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _muat() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _jadwalHariIni = [];
+      _jamMasuk = null;
+      _jamPulang = null;
+    });
     try {
-      final status = await ApiService.statusHariIni();
+      _jadwalError = null;
+      try {
+        final jadwal = await ApiService.jadwalKerjaHariIni();
+        final slots = jadwal['slots'];
+        if (slots is List && mounted) {
+          _jadwalHariIni =
+              slots.map((item) => Map<String, dynamic>.from(item)).toList();
+        } else {
+          throw const FormatException('Format jadwal kerja tidak valid.');
+        }
+      } catch (e) {
+        if (mounted) _jadwalError = e.toString();
+      }
+      final slotBerikutnya = _jadwalHariIni
+          .cast<Map<String, dynamic>?>()
+          .firstWhere(
+            (slot) =>
+                slot?['status'] != 'selesai' && slot?['status'] != 'terlewat',
+            orElse: () => null,
+          );
+      _jamMasuk = _formatJam(slotBerikutnya?['jam_mulai']);
+      _jamPulang = _formatJam(slotBerikutnya?['jam_selesai']);
       final nama = await Session.getNama();
       if (mounted && nama != null && nama.isNotEmpty) {
         _nama = nama;
@@ -63,7 +93,8 @@ class _HomeScreenState extends State<HomeScreen> {
       try {
         final prof = await ApiService.getProfile();
         if (mounted) {
-          if (prof['nama'] != null && prof['nama'].toString().trim().isNotEmpty) {
+          if (prof['nama'] != null &&
+              prof['nama'].toString().trim().isNotEmpty) {
             _nama = prof['nama'].toString().trim();
             await Session.setNama(_nama);
           }
@@ -73,16 +104,6 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       } catch (_) {}
 
-      if (status['data'] != null) {
-        final data = status['data'];
-        String? msk = data['jam_masuk'];
-        String? plg = data['jam_pulang'];
-        if (msk != null && msk.length >= 5) msk = msk.substring(0, 5);
-        if (plg != null && plg.length >= 5) plg = plg.substring(0, 5);
-        _jamMasuk = msk;
-        _jamPulang = plg;
-      }
-
       // Ambil ringkasan riwayat jika tersedia
       try {
         final riwayat = await ApiService.riwayatAbsen();
@@ -91,7 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
           int terlambat = 0;
           for (final r in riwayat) {
             final st = (r['status'] ?? '').toString().toLowerCase();
-            if (st.contains('terlambat')) {
+            if (st.contains('terlambat') || st == 'telat') {
               terlambat++;
             } else if (r['jam_masuk'] != null) {
               hadir++;
@@ -146,15 +167,95 @@ class _HomeScreenState extends State<HomeScreen> {
     return parts[0][0].toUpperCase();
   }
 
-  void _bukaAbsensi({bool? isMasuk}) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => AbsensiScreen(
-          initialIsMasuk: isMasuk ?? true,
-          isStandalone: true,
+  String? _formatJam(dynamic value) {
+    if (value == null) return null;
+    final jam = value.toString();
+    return jam.length >= 5 ? jam.substring(0, 5) : jam;
+  }
+
+  Widget _buildJadwalHariIni() {
+    final active = _jadwalHariIni.where(
+        (slot) => slot['status'] != 'selesai' && slot['status'] != 'terlewat');
+    final next = active.isEmpty ? null : active.first;
+    final location = next?['Location'];
+    final locationName = location is Map
+        ? location['nama']?.toString() ?? 'Lokasi kerja'
+        : 'Lokasi kerja';
+    final start = next?['jam_mulai']?.toString();
+    final startText =
+        start != null && start.length >= 5 ? start.substring(0, 5) : '';
+
+    return InkWell(
+      onTap: _bukaAbsensi,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEEF2FF),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFDDE3FF)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.event_note_rounded, color: Color(0xFF4F5BA8)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Jadwal kerja hari ini',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF27315B),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _jadwalError != null
+                        ? 'Jadwal belum dapat dimuat. Ketuk untuk mencoba lagi.'
+                        : _jadwalHariIni.isEmpty
+                            ? 'Belum ada jadwal kerja hari ini.'
+                            : next == null
+                                ? 'Semua slot kerja hari ini sudah lewat. Hubungi admin jika kamu belum sempat absen.'
+                                : '${_jadwalHariIni.length} slot kerja. Slot berikutnya: $locationName${startText.isEmpty ? '' : ', pukul $startText'}.',
+                    style: const TextStyle(
+                      color: Color(0xFF4B5563),
+                      fontSize: 12,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'Lihat jadwal',
+                    style: TextStyle(
+                      color: Color(0xFF4F5BA8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Color(0xFF4F5BA8)),
+          ],
         ),
       ),
-    ).then((_) => _muat());
+    );
+  }
+
+  void _bukaAbsensi() {
+    if (widget.onOpenAbsensi != null) {
+      widget.onOpenAbsensi!();
+      return;
+    }
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) => const JadwalAbsensiScreen(),
+          ),
+        )
+        .then((_) => _muat());
   }
 
   @override
@@ -192,7 +293,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               children: [
                                 // Baris Avatar, Salam & Nama, Notifikasi
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Row(
                                       children: [
@@ -204,23 +306,29 @@ class _HomeScreenState extends State<HomeScreen> {
                                             color: const Color(0xFF9AA7DD),
                                             shape: BoxShape.circle,
                                             border: Border.all(
-                                              color: Colors.white.withValues(alpha: 0.3),
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.3),
                                               width: 1.5,
                                             ),
                                           ),
                                           child: ClipOval(
-                                            child: AppConstants.getImageUrl(_fotoProfil) != null
+                                            child: AppConstants.getImageUrl(
+                                                        _fotoProfil) !=
+                                                    null
                                                 ? Image.network(
-                                                    AppConstants.getImageUrl(_fotoProfil)!,
+                                                    AppConstants.getImageUrl(
+                                                        _fotoProfil)!,
                                                     width: 44,
                                                     height: 44,
                                                     fit: BoxFit.cover,
-                                                    errorBuilder: (_, __, ___) => Center(
+                                                    errorBuilder:
+                                                        (_, __, ___) => Center(
                                                       child: Text(
                                                         _getInitials(_nama),
                                                         style: const TextStyle(
                                                           fontSize: 16,
-                                                          fontWeight: FontWeight.bold,
+                                                          fontWeight:
+                                                              FontWeight.bold,
                                                           color: Colors.white,
                                                         ),
                                                       ),
@@ -231,7 +339,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                                       _getInitials(_nama),
                                                       style: const TextStyle(
                                                         fontSize: 16,
-                                                        fontWeight: FontWeight.bold,
+                                                        fontWeight:
+                                                            FontWeight.bold,
                                                         color: Colors.white,
                                                       ),
                                                     ),
@@ -240,13 +349,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                         const SizedBox(width: 12),
                                         Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               _salamWaktu(),
                                               style: TextStyle(
                                                 fontSize: 13,
-                                                color: Colors.white.withValues(alpha: 0.88),
+                                                color: Colors.white
+                                                    .withValues(alpha: 0.88),
                                               ),
                                             ),
                                             Text(
@@ -263,48 +374,64 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                     // Lonceng Notifikasi dengan Counter Angka Belum Dibaca
                                     ValueListenableBuilder<int>(
-                                      valueListenable: NotifikasiService.unreadCountNotifier,
+                                      valueListenable:
+                                          NotifikasiService.unreadCountNotifier,
                                       builder: (context, unreadCount, _) {
                                         return IconButton(
                                           icon: Stack(
                                             clipBehavior: Clip.none,
                                             children: [
-                                              const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 26),
+                                              const Icon(
+                                                  Icons
+                                                      .notifications_none_rounded,
+                                                  color: Colors.white,
+                                                  size: 26),
                                               if (unreadCount > 0)
                                                 Positioned(
                                                   top: -3,
                                                   right: -4,
                                                   child: Container(
-                                                    padding: const EdgeInsets.symmetric(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
                                                       horizontal: 5,
                                                       vertical: 1.5,
                                                     ),
-                                                    constraints: const BoxConstraints(
+                                                    constraints:
+                                                        const BoxConstraints(
                                                       minWidth: 18,
                                                       minHeight: 18,
                                                     ),
                                                     decoration: BoxDecoration(
-                                                      color: const Color(0xFFEF4444),
-                                                      borderRadius: BorderRadius.circular(10),
+                                                      color: const Color(
+                                                          0xFFEF4444),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              10),
                                                       border: Border.all(
                                                         color: Colors.white,
                                                         width: 1.8,
                                                       ),
                                                       boxShadow: [
                                                         BoxShadow(
-                                                          color: Colors.black.withValues(alpha: 0.25),
+                                                          color: Colors.black
+                                                              .withValues(
+                                                                  alpha: 0.25),
                                                           blurRadius: 4,
-                                                          offset: const Offset(0, 1),
+                                                          offset: const Offset(
+                                                              0, 1),
                                                         ),
                                                       ],
                                                     ),
                                                     alignment: Alignment.center,
                                                     child: Text(
-                                                      unreadCount > 9 ? '9+' : '$unreadCount',
+                                                      unreadCount > 9
+                                                          ? '9+'
+                                                          : '$unreadCount',
                                                       style: const TextStyle(
                                                         color: Colors.white,
                                                         fontSize: 10,
-                                                        fontWeight: FontWeight.w800,
+                                                        fontWeight:
+                                                            FontWeight.w800,
                                                         height: 1.1,
                                                       ),
                                                     ),
@@ -314,7 +441,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                           onPressed: () {
                                             NotifikasiService.syncFromBackend();
-                                            NotifikasiKaryawanPopup.show(context);
+                                            NotifikasiKaryawanPopup.show(
+                                                context);
                                           },
                                         );
                                       },
@@ -329,10 +457,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
+                                    border: Border.all(
+                                        color: const Color(0xFFE5E7EB),
+                                        width: 1.2),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.06),
+                                        color: Colors.black
+                                            .withValues(alpha: 0.06),
                                         blurRadius: 14,
                                         offset: const Offset(0, 6),
                                       ),
@@ -345,24 +476,33 @@ class _HomeScreenState extends State<HomeScreen> {
                                         children: [
                                           Expanded(
                                             child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 14,
+                                                      vertical: 12),
                                               decoration: BoxDecoration(
                                                 color: const Color(0xFFF8FAFC),
-                                                borderRadius: BorderRadius.circular(14),
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
                                               ),
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   const Text(
-                                                    'Jam Masuk',
-                                                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                                                    'Mulai Slot Berikutnya',
+                                                    style: TextStyle(
+                                                        fontSize: 12,
+                                                        color:
+                                                            Color(0xFF6B7280)),
                                                   ),
                                                   const SizedBox(height: 4),
                                                   Text(
                                                     _jamMasuk ?? '—:—',
                                                     style: const TextStyle(
                                                       fontSize: 18,
-                                                      fontWeight: FontWeight.bold,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                       color: Color(0xFF111827),
                                                     ),
                                                   ),
@@ -373,24 +513,33 @@ class _HomeScreenState extends State<HomeScreen> {
                                           const SizedBox(width: 12),
                                           Expanded(
                                             child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 14,
+                                                      vertical: 12),
                                               decoration: BoxDecoration(
                                                 color: const Color(0xFFF8FAFC),
-                                                borderRadius: BorderRadius.circular(14),
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
                                               ),
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   const Text(
-                                                    'Jam Pulang',
-                                                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                                                    'Selesai Slot Berikutnya',
+                                                    style: TextStyle(
+                                                        fontSize: 12,
+                                                        color:
+                                                            Color(0xFF6B7280)),
                                                   ),
                                                   const SizedBox(height: 4),
                                                   Text(
                                                     _jamPulang ?? '—:—',
                                                     style: const TextStyle(
                                                       fontSize: 18,
-                                                      fontWeight: FontWeight.bold,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                       color: Color(0xFF111827),
                                                     ),
                                                   ),
@@ -410,14 +559,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                             foregroundColor: Colors.white,
                                             elevation: 0,
                                             shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(12),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                             ),
                                           ),
                                           onPressed: () => _bukaAbsensi(),
-                                          icon: const Icon(Icons.camera_alt, size: 18),
+                                          icon: const Icon(Icons.camera_alt,
+                                              size: 18),
                                           label: const Text(
                                             'Absensi Sekarang',
-                                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                            style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold),
                                           ),
                                         ),
                                       ),
@@ -431,6 +584,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
 
+                    const SizedBox(height: 14),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildJadwalHariIni(),
+                    ),
                     const SizedBox(height: 20),
 
                     // 3. MENU CEPAT
@@ -458,14 +616,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             iconBg: const Color(0xFFEEF2FF),
                             iconColor: const Color(0xFF3B82F6),
                             label: 'Absen\nMasuk',
-                            onTap: () => _bukaAbsensi(isMasuk: true),
+                            onTap: _bukaAbsensi,
                           ),
                           _buildMenuCepatItem(
                             icon: Icons.access_time_filled,
                             iconBg: const Color(0xFFDCFCE7),
                             iconColor: const Color(0xFF16A34A),
                             label: 'Absen\nKeluar',
-                            onTap: () => _bukaAbsensi(isMasuk: false),
+                            onTap: _bukaAbsensi,
                           ),
                           _buildMenuCepatItem(
                             icon: Icons.format_list_bulleted,
@@ -474,7 +632,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             label: 'Riwayat\n ',
                             onTap: () {
                               Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const RiwayatAbsenScreen()),
+                                MaterialPageRoute(
+                                    builder: (_) => const RiwayatAbsenScreen()),
                               );
                             },
                           ),
@@ -485,7 +644,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             label: 'Laporan\n ',
                             onTap: () {
                               Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const LaporanScreen()),
+                                MaterialPageRoute(
+                                    builder: (_) => const LaporanScreen()),
                               );
                             },
                           ),
@@ -496,7 +656,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             label: 'Pengajuan\nCuti',
                             onTap: () {
                               Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const PengajuanCutiScreen()),
+                                MaterialPageRoute(
+                                    builder: (_) =>
+                                        const PengajuanCutiScreen()),
                               );
                             },
                           ),
@@ -601,7 +763,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
+                          border: Border.all(
+                              color: const Color(0xFFE5E7EB), width: 1.2),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.02),
@@ -619,7 +782,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               title: 'Absensi Masuk',
                               subtitle: 'Kemarin, 17 Agt',
                             ),
-                            const Divider(height: 1, indent: 60, endIndent: 16, color: Color(0xFFF3F4F6)),
+                            const Divider(
+                                height: 1,
+                                indent: 60,
+                                endIndent: 16,
+                                color: Color(0xFFF3F4F6)),
                             _buildAktivitasItem(
                               icon: Icons.check_circle,
                               iconBg: const Color(0xFFDCFCE7),
@@ -627,7 +794,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               title: 'Laporan Dikirim',
                               subtitle: 'Kemarin, 17 Agt',
                             ),
-                            const Divider(height: 1, indent: 60, endIndent: 16, color: Color(0xFFF3F4F6)),
+                            const Divider(
+                                height: 1,
+                                indent: 60,
+                                endIndent: 16,
+                                color: Color(0xFFF3F4F6)),
                             _buildAktivitasItem(
                               icon: Icons.access_time,
                               iconBg: const Color(0xFFFFEDD5),

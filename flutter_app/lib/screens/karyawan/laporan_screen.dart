@@ -6,7 +6,9 @@ import 'buat_laporan_screen.dart';
 import 'detail_laporan_screen.dart';
 
 class LaporanScreen extends StatefulWidget {
-  const LaporanScreen({super.key});
+  final VoidCallback? onBack;
+
+  const LaporanScreen({super.key, this.onBack});
 
   @override
   State<LaporanScreen> createState() => _LaporanScreenState();
@@ -49,7 +51,8 @@ class _LaporanScreenState extends State<LaporanScreen> {
       'luas_area': '15 Ha',
       'uraian_pekerjaan':
           'Pemetaan kontur elevasi dan indeks vegetasi NDVI lahan baru Subang selesai dipetakan untuk perencanaan irigasi presisi.',
-      'hasil': 'Peta ortomosaik resolusi tinggi selesai diproses di server GIS.',
+      'hasil':
+          'Peta ortomosaik resolusi tinggi selesai diproses di server GIS.',
       'rencana_esok': 'Analisis data NDVI bersama tim agronomi internal.',
       'isi_laporan':
           'Pemetaan elevasi dan batas kontur lahan baru wilayah Subang menggunakan drone pemeta.',
@@ -98,8 +101,18 @@ class _LaporanScreenState extends State<LaporanScreen> {
 
   String _formatTanggalIndo(DateTime dt) {
     const namaBulan = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember'
     ];
     return '${dt.day} ${namaBulan[dt.month - 1]} ${dt.year}';
   }
@@ -125,25 +138,33 @@ class _LaporanScreenState extends State<LaporanScreen> {
         String waktuFmt = '16:00';
         if (item['createdAt'] != null) {
           try {
-            final dtCreated = DateTime.parse(item['createdAt'].toString()).toLocal();
+            final dtCreated =
+                DateTime.parse(item['createdAt'].toString()).toLocal();
             waktuFmt = DateFormat('HH:mm').format(dtCreated);
           } catch (_) {}
         }
 
         parsed.add({
           'id': item['id'],
+          'tanggal_raw': tglRaw,
           'judul': item['judul'] ?? 'Laporan Kegiatan',
           'tanggal': tglFmt,
           'waktu': waktuFmt,
           'status': item['status'] ?? 'Terkirim',
           'isi_laporan': item['isi_laporan'] ?? '',
-          'jenis_kegiatan': item['jenis_kegiatan'] ?? item['judul'] ?? 'Penyemprotan Pestisida',
+          'jenis_kegiatan': item['jenis_kegiatan'] ??
+              item['judul'] ??
+              'Penyemprotan Pestisida',
           'lokasi': item['lokasi'] ?? 'Sawah Blok A — Karawang',
           'unit_drone': item['unit_drone'] ?? 'DA-001 (DJI Agras T40)',
           'luas_area': item['luas_area'] ?? '8 Ha',
-          'uraian_pekerjaan': item['uraian_pekerjaan'] ?? item['isi_laporan'] ?? '',
-          'hasil': item['hasil'] ?? 'Penyemprotan 100% selesai. Tidak ada kendala signifikan.',
-          'rencana_esok': item['rencana_esok'] ?? 'Penyemprotan Blok B — 5 Ha dengan drone DA-002.',
+          'uraian_pekerjaan':
+              item['uraian_pekerjaan'] ?? item['isi_laporan'] ?? '',
+          'hasil': item['hasil'] ??
+              'Penyemprotan 100% selesai. Tidak ada kendala signifikan.',
+          'rencana_esok': item['rencana_esok'] ??
+              'Penyemprotan Blok B — 5 Ha dengan drone DA-002.',
+          'lampiran': item['lampiran'],
         });
       }
 
@@ -171,13 +192,13 @@ class _LaporanScreenState extends State<LaporanScreen> {
     });
   }
 
-  Future<void> _bukaFormTambah() async {
+  Future<void> _bukaFormTambah({Map<String, dynamic>? draft}) async {
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => const BuatLaporanScreen(),
+        builder: (_) => BuatLaporanScreen(draft: draft),
       ),
     );
-    if (result == true || mounted) {
+    if (result == true && mounted) {
       await _muatData();
     }
   }
@@ -273,12 +294,15 @@ class _LaporanScreenState extends State<LaporanScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                 child: Row(
                   children: [
-                    if (Navigator.canPop(context)) ...[
+                    if (widget.onBack != null || Navigator.canPop(context)) ...[
                       IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF111827)),
+                        icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                            size: 20, color: Color(0xFF111827)),
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                        onPressed: () => Navigator.pop(context),
+                        constraints:
+                            const BoxConstraints(minWidth: 32, minHeight: 32),
+                        onPressed:
+                            widget.onBack ?? () => Navigator.pop(context),
                       ),
                       const SizedBox(width: 8),
                     ],
@@ -349,25 +373,9 @@ class _LaporanScreenState extends State<LaporanScreen> {
                               const Center(
                                 child: Text(
                                   'Buat laporan kegiatan harian Anda sekarang.',
-                                  style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                                  style: TextStyle(
+                                      fontSize: 13, color: Color(0xFF6B7280)),
                                   textAlign: TextAlign.center,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              Center(
-                                child: ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppConstants.primaryColor,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                  ),
-                                  icon: const Icon(Icons.add, size: 18),
-                                  label: const Text(
-                                    'Buat Laporan Baru',
-                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                                  ),
-                                  onPressed: _bukaFormTambah,
                                 ),
                               ),
                             ],
@@ -375,7 +383,8 @@ class _LaporanScreenState extends State<LaporanScreen> {
                         : ListView.separated(
                             padding: const EdgeInsets.fromLTRB(20, 0, 20, 80),
                             itemCount: filtered.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 12),
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 12),
                             itemBuilder: (context, i) {
                               final item = filtered[i];
                               return _buildLaporanCard(item);
@@ -408,7 +417,9 @@ class _LaporanScreenState extends State<LaporanScreen> {
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => _bukaDetailLaporan(item),
+          onTap: (item['status'] ?? '').toString().toLowerCase() == 'draft'
+              ? () => _bukaFormTambah(draft: item)
+              : () => _bukaDetailLaporan(item),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(

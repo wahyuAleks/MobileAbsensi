@@ -1,5 +1,3 @@
-const dotenv = require('dotenv');
-
 // Menghitung jarak antara 2 koordinat (meter) pakai formula haversine
 function hitungJarakMeter(lat1, lng1, lat2, lng2) {
   const R = 6371000; // radius bumi dalam meter
@@ -17,17 +15,40 @@ function hitungJarakMeter(lat1, lng1, lat2, lng2) {
   return R * c;
 }
 
-function isDalamRadiusKantor(lat, lng) {
-  try {
-    dotenv.config({ override: true });
-  } catch (_) {}
-
-  const officeLat = parseFloat(process.env.OFFICE_LAT || '-6.949161');
-  const officeLng = parseFloat(process.env.OFFICE_LNG || '107.645018');
-  const radius = parseFloat(process.env.OFFICE_RADIUS_METERS || '250');
-
-  const jarak = hitungJarakMeter(lat, lng, officeLat, officeLng);
-  return { valid: jarak <= radius, jarak };
+function validCoordinate(value, min, max) {
+  if (value == null || String(value).trim() === '') return false;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= min && number <= max;
 }
 
-module.exports = { hitungJarakMeter, isDalamRadiusKantor };
+function validCoordinatePair(lat, lng) {
+  return validCoordinate(lat, -90, 90) && validCoordinate(lng, -180, 180);
+}
+
+function isDalamRadiusLokasi(lat, lng, location) {
+  if (
+    !validCoordinatePair(lat, lng) ||
+    !validCoordinatePair(location?.latitude, location?.longitude)
+  ) {
+    return { configured: false, valid: false, jarak: null };
+  }
+
+  const radius = Number(location.radius_meters);
+  if (!Number.isInteger(radius) || radius <= 0) {
+    return { configured: false, valid: false, jarak: null };
+  }
+
+  const jarak = hitungJarakMeter(
+    Number(lat),
+    Number(lng),
+    Number(location.latitude),
+    Number(location.longitude),
+  );
+  return { configured: true, valid: jarak <= radius, jarak };
+}
+
+module.exports = {
+  hitungJarakMeter,
+  isDalamRadiusLokasi,
+  validCoordinatePair,
+};
