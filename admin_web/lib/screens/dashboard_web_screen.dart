@@ -25,6 +25,8 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
     with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late int _index;
+  final List<int> _pageKeys = List<int>.filled(9, 0);
+
   final List<String> _titles = const [
     'Dashboard',
     'Data Karyawan',
@@ -47,6 +49,7 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       NotifikasiService.startRealtime();
+      _refreshCurrentTab();
     }
   }
 
@@ -59,7 +62,26 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
 
   void _pindahTab(int i) {
     if (mounted) {
-      setState(() => _index = i);
+      setState(() {
+        _index = i;
+        _pageKeys[i]++; // Setiap pindah tab, refresh data screen tujuan secara real-time
+      });
+    }
+  }
+
+  void _refreshCurrentTab() {
+    if (mounted) {
+      setState(() {
+        _pageKeys[_index]++;
+      });
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Memperbarui data halaman...'),
+          duration: Duration(milliseconds: 800),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -79,6 +101,7 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
   Widget build(BuildContext context) {
     final screens = [
       HomeAdminScreen(
+        key: ValueKey('home_${_pageKeys[0]}'),
         onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
         onOpenNotifikasi: _bukaNotifikasi,
         onBukaKaryawan: () => _pindahTab(1),
@@ -87,6 +110,7 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
         onBukaProfil: () => _pindahTab(6),
       ),
       DataKaryawanScreen(
+        key: ValueKey('karyawan_${_pageKeys[1]}'),
         showAppBar: false,
         onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
         onOpenNotifikasi: _bukaNotifikasi,
@@ -95,6 +119,7 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
         onBukaProfil: () => _pindahTab(6),
       ),
       MonitoringAbsensiScreen(
+        key: ValueKey('monitoring_${_pageKeys[2]}'),
         showAppBar: false,
         onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
         onOpenNotifikasi: _bukaNotifikasi,
@@ -103,6 +128,7 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
         onBukaProfil: () => _pindahTab(6),
       ),
       RekapAbsensiScreen(
+        key: ValueKey('rekap_absensi_${_pageKeys[3]}'),
         showAppBar: false,
         onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
         onOpenNotifikasi: _bukaNotifikasi,
@@ -111,6 +137,7 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
         onBukaProfil: () => _pindahTab(6),
       ),
       PersetujuanCutiScreen(
+        key: ValueKey('cuti_${_pageKeys[4]}'),
         showAppBar: false,
         onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
         onOpenNotifikasi: _bukaNotifikasi,
@@ -118,12 +145,14 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
         onBukaRekapAbsensi: () => _pindahTab(2),
       ),
       RekapLaporanScreen(
+        key: ValueKey('laporan_${_pageKeys[5]}'),
         showAppBar: false,
         onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
         onOpenNotifikasi: _bukaNotifikasi,
         onBukaProfil: () => _pindahTab(6),
       ),
       ProfileAdminScreen(
+        key: ValueKey('profile_${_pageKeys[8]}'),
         showAppBar: false,
         onBukaRekapAbsensi: () => _pindahTab(2),
       ),

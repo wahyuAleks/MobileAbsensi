@@ -27,6 +27,12 @@ class RekapDataScreen extends StatefulWidget {
 }
 
 class _RekapDataScreenState extends State<RekapDataScreen> {
+  // ───── Lokasi / Proyek filter state ─────
+  List<Map<String, dynamic>> _lokasiList = [];
+  String _selectedLokasi = 'Semua Proyek';
+  bool _lokasiLoading = true;
+  String? _lokasiError;
+
   // ───── Chart state ─────
   List<Map<String, dynamic>> _chartRaw = [];
   bool _chartLoading = true;
@@ -52,9 +58,42 @@ class _RekapDataScreenState extends State<RekapDataScreen> {
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
     _selectedDateRange = DateTimeRange(start: todayDate, end: todayDate);
+    _muatLokasi();
     _muatChart();
     _muatDaftarKaryawan();
     _muatTabel();
+  }
+
+  Future<void> refreshData() async {
+    await Future.wait([
+      _muatLokasi(),
+      _muatChart(),
+      _muatDaftarKaryawan(),
+      _muatTabel(),
+    ]);
+  }
+
+  Future<void> _muatLokasi() async {
+    setState(() {
+      _lokasiLoading = true;
+      _lokasiError = null;
+    });
+    try {
+      final raw = await ApiService.daftarLokasi();
+      if (!mounted) return;
+      setState(() {
+        _lokasiList = raw.whereType<Map>().map((item) {
+          return Map<String, dynamic>.from(item);
+        }).toList();
+        _lokasiLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _lokasiError = 'Gagal memuat master lokasi: $e';
+        _lokasiLoading = false;
+      });
+    }
   }
 
   Future<void> _muatDaftarKaryawan() async {
@@ -81,13 +120,16 @@ class _RekapDataScreenState extends State<RekapDataScreen> {
   }
 
   // ───── MUAT DATA CHART ─────
-  Future<void> _muatChart() async {
+  Future<void> _muatChart({String? lokasi}) async {
+    final targetLokasi = lokasi ?? _selectedLokasi;
     setState(() {
       _chartLoading = true;
       _chartError = null;
     });
     try {
-      final raw = await ApiService.rekapChart();
+      final raw = await ApiService.rekapChart(
+        lokasi: targetLokasi == 'Semua Proyek' ? null : targetLokasi,
+      );
       if (mounted) {
         setState(() {
           _chartRaw = List<Map<String, dynamic>>.from(raw);
@@ -113,13 +155,15 @@ class _RekapDataScreenState extends State<RekapDataScreen> {
       return {
         'tanggal': DateFormat('yyyy-MM-dd').format(d),
         'total_hektar': (rng.nextDouble() * 20 + 3).toStringAsFixed(2),
+        'lokasi': _selectedLokasi,
         'nama_karyawan': 'Demo Karyawan',
       };
     });
   }
 
   // ───── MUAT DATA TABEL ─────
-  Future<void> _muatTabel() async {
+  Future<void> _muatTabel({String? lokasi}) async {
+    final targetLokasi = lokasi ?? _selectedLokasi;
     setState(() {
       _tabelLoading = true;
       _tabelError = null;
@@ -130,6 +174,7 @@ class _RekapDataScreenState extends State<RekapDataScreen> {
         tanggalEnd: DateFormat('yyyy-MM-dd').format(_selectedDateRange.end),
         userId:
             _selectedKaryawanId == -1 ? null : _selectedKaryawanId.toString(),
+        lokasi: targetLokasi == 'Semua Proyek' ? null : targetLokasi,
       );
       if (mounted) {
         setState(() {
@@ -346,6 +391,75 @@ class _RekapDataScreenState extends State<RekapDataScreen> {
     );
   }
 
+  Widget _buildLocationFilterDropdown() {
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _lokasiError != null ? 'Semua Proyek' : _selectedLokasi,
+          isDense: true,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded,
+              color: Color(0xFF488286), size: 20),
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1E293B),
+          ),
+          items: [
+            const DropdownMenuItem<String>(
+              value: 'Semua Proyek',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.dashboard_customize_rounded,
+                      size: 16, color: Color(0xFF488286)),
+                  SizedBox(width: 8),
+                  Text('Semua Proyek (Master Data)'),
+                ],
+              ),
+            ),
+            if (_lokasiLoading)
+              const DropdownMenuItem<String>(
+                value: 'Memuat lokasi...',
+                enabled: false,
+                child: Text('Memuat lokasi...'),
+              ),
+            ..._lokasiList.map((lokasi) {
+              final nama = (lokasi['nama'] ?? '').toString();
+              if (nama.isEmpty) return null;
+              return DropdownMenuItem<String>(
+                value: nama,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.location_on_rounded,
+                        size: 16, color: Color(0xFF488286)),
+                    const SizedBox(width: 8),
+                    Text('Proyek: $nama'),
+                  ],
+                ),
+              );
+            }).whereType<DropdownMenuItem<String>>(),
+          ],
+          onChanged: _lokasiLoading || _lokasiError != null
+              ? null
+              : (val) {
+                  if (val == null || val == _selectedLokasi) return;
+                  setState(() => _selectedLokasi = val);
+                  _muatChart(lokasi: val);
+                  _muatTabel(lokasi: val);
+                },
+        ),
+      ),
+    );
+  }
+
   Widget _buildFilters() {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -382,13 +496,16 @@ class _RekapDataScreenState extends State<RekapDataScreen> {
     }
 
     if (points.isEmpty) {
+      final labelLokasi = _selectedLokasi == 'Semua Proyek'
+          ? 'semua proyek'
+          : 'lokasi $_selectedLokasi';
       return Container(
         height: 240,
         alignment: Alignment.center,
-        child: const Text(
-          'Belum ada data laporan luas area.\nData akan muncul setelah karyawan mengirim laporan.',
+        child: Text(
+          'Belum ada data laporan luas area untuk $labelLokasi.\nData akan muncul setelah karyawan mengirim laporan.',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+          style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
         ),
       );
     }
@@ -811,14 +928,6 @@ class _RekapDataScreenState extends State<RekapDataScreen> {
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.refresh_rounded,
-                      color: Color(0xFF488286)),
-                  onPressed: () async {
-                    await Future.wait([_muatChart(), _muatTabel()]);
-                  },
-                  tooltip: 'Refresh Data',
-                ),
               ],
             ),
           ),
@@ -841,30 +950,85 @@ class _RekapDataScreenState extends State<RekapDataScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 14,
-                      height: 14,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF488286),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Tren Luas Area yang Diolah (Selama Proyek)',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: Color(0xFF111827),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isCompact = constraints.maxWidth < 620;
+                    if (isCompact) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 14,
+                                height: 14,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF488286),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'Tren Luas Area Berdasarkan Lokasi Kerja',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          _buildLocationFilterDropdown(),
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Container(
+                          width: 14,
+                          height: 14,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF488286),
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Tren Luas Area Berdasarkan Lokasi Kerja',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  color: Color(0xFF111827),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _selectedLokasi == 'Semua Proyek'
+                                    ? 'Menampilkan Master Data Semua Proyek'
+                                    : 'Menampilkan Data Proyek: $_selectedLokasi',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF488286),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        _buildLocationFilterDropdown(),
+                      ],
+                    );
+                  },
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 const Text(
                   'Sumbu X: Tanggal  ·  Sumbu Y: Total Luas Area (Hektar)',
                   style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),

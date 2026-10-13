@@ -7,6 +7,10 @@ const uploadLaporan = makeUploader('laporan');
 
 router.post('/', verifyToken, uploadLaporan.single('lampiran'), laporanController.submitLaporan);
 router.get('/saya', verifyToken, laporanController.laporanSaya);
+router.get('/chart', verifyToken, isAdmin, laporanController.rekapChart);
+router.put('/:id/admin-edit', verifyToken, isAdmin, uploadLaporan.any(), laporanController.editLaporanAdmin);
+router.put('/:id', verifyToken, uploadLaporan.any(), laporanController.updateDraft);
+router.put('/:id/kirim', verifyToken, uploadLaporan.any(), laporanController.kirimDraft);
 router.get('/rekap', verifyToken, isAdmin, laporanController.rekapLaporan);
 
 module.exports = router;

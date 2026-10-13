@@ -67,15 +67,25 @@ exports.rekapLaporan = async (req, res) => {
       tanggal_start: tanggalStart,
       tanggal_end: tanggalEnd,
       user_id: userId,
+      lokasi,
     } = req.query;
     const where = {};
 
-    if (userId !== undefined) {
+    if (userId !== undefined && userId !== '' && userId !== '-1') {
       const parsedUserId = Number(userId);
       if (!Number.isSafeInteger(parsedUserId) || parsedUserId < 1) {
         return res.status(400).json({ message: 'Filter karyawan tidak valid' });
       }
       where.user_id = parsedUserId;
+    }
+
+    if (
+      lokasi &&
+      typeof lokasi === 'string' &&
+      lokasi.trim() !== '' &&
+      !['semua', 'all', 'semua proyek', 'semua lokasi'].includes(lokasi.trim().toLowerCase())
+    ) {
+      where.lokasi = { [Op.like]: `%${lokasi.trim()}%` };
     }
 
     if (tanggalStart || tanggalEnd) {
@@ -108,6 +118,84 @@ exports.rekapLaporan = async (req, res) => {
       order: [['tanggal', 'DESC']],
     });
     res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: 'Terjadi kesalahan server', error: err.message });
+  }
+};
+
+// REKAP CHART untuk tren grafik luas area di Dashboard admin
+exports.rekapChart = async (req, res) => {
+  try {
+    const {
+      user_id: userId,
+      lokasi,
+      tanggal_start: tanggalStart,
+      tanggal_end: tanggalEnd,
+    } = req.query;
+    const where = {};
+
+    if (userId !== undefined && userId !== '' && userId !== '-1') {
+      const parsedUserId = Number(userId);
+      if (Number.isSafeInteger(parsedUserId) && parsedUserId > 0) {
+        where.user_id = parsedUserId;
+      }
+    }
+
+    if (
+      lokasi &&
+      typeof lokasi === 'string' &&
+      lokasi.trim() !== '' &&
+      !['semua', 'all', 'semua proyek', 'semua lokasi'].includes(lokasi.trim().toLowerCase())
+    ) {
+      where.lokasi = { [Op.like]: `%${lokasi.trim()}%` };
+    }
+
+    if (tanggalStart || tanggalEnd) {
+      if (tanggalStart && tanggalEnd && isValidDate(tanggalStart) && isValidDate(tanggalEnd)) {
+        where.tanggal = { [Op.between]: [tanggalStart, tanggalEnd] };
+      }
+    }
+
+    where.status = { [Op.ne]: 'Draft' };
+
+    const data = await Laporan.findAll({
+      where,
+      include: [{ model: User, attributes: ['id', 'nama', 'jabatan'] }],
+      order: [['tanggal', 'ASC']],
+    });
+
+    const parseHa = (val) => {
+      if (!val) return 0;
+      const s = String(val).replace(/[^0-9.,]/g, '').replace(',', '.');
+      return parseFloat(s) || 0;
+    };
+
+    const grouped = {};
+    for (const item of data) {
+      const tgl = item.tanggal;
+      const ha = parseHa(item.luas_area);
+      if (!grouped[tgl]) {
+        grouped[tgl] = {
+          tanggal: tgl,
+          total_hektar: 0,
+          lokasi: item.lokasi || (lokasi || 'Semua Proyek'),
+          nama_karyawan: item.User ? item.User.nama : '',
+          jumlah_laporan: 0,
+        };
+      }
+      grouped[tgl].total_hektar += ha;
+      grouped[tgl].jumlah_laporan += 1;
+    }
+
+    const result = Object.values(grouped).map((g) => ({
+      tanggal: g.tanggal,
+      total_hektar: Number(g.total_hektar.toFixed(2)),
+      lokasi: g.lokasi,
+      nama_karyawan: g.nama_karyawan,
+      jumlah_laporan: g.jumlah_laporan,
+    }));
+
+    res.json(result);
   } catch (err) {
     res.status(500).json({ message: 'Terjadi kesalahan server', error: err.message });
   }

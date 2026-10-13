@@ -87,17 +87,6 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
                   'Persetujuan & Manajemen Cuti Karyawan',
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                 ),
-                ElevatedButton.icon(
-                  onPressed: _muat,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('Refresh Data'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppConstants.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 24),

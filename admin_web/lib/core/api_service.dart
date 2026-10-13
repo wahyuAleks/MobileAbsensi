@@ -148,6 +148,7 @@ class ApiService {
     String? minggu,
     String? bulan,
     String? userId,
+    String? lokasi,
   }) async {
     final query = <String, String>{};
     if (tanggal != null) query['tanggal'] = tanggal;
@@ -156,6 +157,12 @@ class ApiService {
     if (minggu != null) query['minggu'] = minggu;
     if (bulan != null) query['bulan'] = bulan;
     if (userId != null) query['user_id'] = userId;
+    if (lokasi != null &&
+        lokasi.isNotEmpty &&
+        !['semua', 'all', 'semua proyek', 'semua lokasi']
+            .contains(lokasi.toLowerCase())) {
+      query['lokasi'] = lokasi;
+    }
 
     final uri = Uri.parse('${AppConstants.baseUrl}/laporan/rekap')
         .replace(queryParameters: query.isEmpty ? null : query);
@@ -164,9 +171,23 @@ class ApiService {
     return _handleList(res);
   }
 
-  static Future<List<dynamic>> rekapChart({String? userId}) async {
+  static Future<List<dynamic>> rekapChart({
+    String? userId,
+    String? lokasi,
+    String? tanggalStart,
+    String? tanggalEnd,
+  }) async {
     final query = <String, String>{};
-    if (userId != null) query['user_id'] = userId;
+    if (userId != null && userId.isNotEmpty) query['user_id'] = userId;
+    if (lokasi != null &&
+        lokasi.isNotEmpty &&
+        !['semua', 'all', 'semua proyek', 'semua lokasi']
+            .contains(lokasi.toLowerCase())) {
+      query['lokasi'] = lokasi;
+    }
+    if (tanggalStart != null) query['tanggal_start'] = tanggalStart;
+    if (tanggalEnd != null) query['tanggal_end'] = tanggalEnd;
+
     final uri = Uri.parse('${AppConstants.baseUrl}/laporan/chart')
         .replace(queryParameters: query.isEmpty ? null : query);
     final res = await http.get(uri, headers: await _headers())
@@ -178,6 +199,14 @@ class ApiService {
   static Future<List<dynamic>> daftarKaryawan() async {
     final res = await http.get(
       Uri.parse('${AppConstants.baseUrl}/karyawan'),
+      headers: await _headers(),
+    ).timeout(const Duration(seconds: 15));
+    return _handleList(res);
+  }
+
+  static Future<List<dynamic>> daftarLokasi() async {
+    final res = await http.get(
+      Uri.parse('${AppConstants.baseUrl}/lokasi'),
       headers: await _headers(),
     ).timeout(const Duration(seconds: 15));
     return _handleList(res);

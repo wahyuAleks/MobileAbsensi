@@ -5,12 +5,14 @@ class AdminHeader extends StatelessWidget {
   final String title;
   final VoidCallback onOpenNotifikasi;
   final VoidCallback onBukaProfil;
+  final VoidCallback? onRefresh;
 
   const AdminHeader({
     super.key,
     required this.title,
     required this.onOpenNotifikasi,
     required this.onBukaProfil,
+    this.onRefresh,
   });
 
   @override
@@ -52,6 +54,13 @@ class AdminHeader extends StatelessWidget {
             ],
           ),
           const Spacer(),
+
+          if (onRefresh != null)
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded, size: 22, color: Color(0xFF488286)),
+              tooltip: 'Refresh Data',
+              onPressed: onRefresh,
+            ),
 
           ValueListenableBuilder<bool>(
             valueListenable: NotifikasiService.realtimeConnectedNotifier,
