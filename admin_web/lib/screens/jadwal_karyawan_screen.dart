@@ -373,6 +373,98 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
     }
   }
 
+  List<Widget> _buildLocationGroups() {
+    final Map<int, List<Map<String, dynamic>>> grouped = {};
+    for (final slot in _slots) {
+      final locationId = int.tryParse(slot['location_id']?.toString() ?? '');
+      final key = locationId ?? -1;
+      grouped.putIfAbsent(key, () => []).add(slot);
+    }
+
+    final orderedIds = <int>{
+      ..._locations.map((location) => int.tryParse(location['id']?.toString() ?? '') ?? -1),
+      ...grouped.keys,
+    }.toList();
+
+    orderedIds.sort((a, b) {
+      if (a == -1) return 1;
+      if (b == -1) return -1;
+      return a.compareTo(b);
+    });
+
+    final locationWidgets = <Widget>[];
+    for (final locationId in orderedIds) {
+      final location = _locations.firstWhere(
+        (item) => int.tryParse(item['id']?.toString() ?? '') == locationId,
+        orElse: () => {'id': locationId, 'nama': 'Lokasi tidak diketahui'},
+      );
+
+      final slotList = grouped[locationId] ?? const <Map<String, dynamic>>[];
+      final title = location['nama']?.toString() ?? 'Lokasi tidak diketahui';
+
+      locationWidgets.add(
+        Card(
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 18),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFFE5E7EB)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined, color: Color(0xFF4F5BA8)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE9EAFE),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '${slotList.length} karyawan',
+                        style: const TextStyle(
+                          color: Color(0xFF4338CA),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (slotList.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 2),
+                    child: Text(
+                      'Belum ada karyawan yang dijadwalkan di lokasi ini.',
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
+                  )
+                else
+                  ...slotList.map(_buildSlot).toList(),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return locationWidgets;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
