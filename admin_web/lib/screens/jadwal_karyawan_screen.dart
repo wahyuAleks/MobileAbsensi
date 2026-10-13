@@ -1,5 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_dragmarker/flutter_map_dragmarker.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../core/api_service.dart';
+
+String _formatRadiusKm(Object? radiusMeters) {
+  final meters = double.tryParse(radiusMeters?.toString() ?? '');
+  if (meters == null || !meters.isFinite) return '0 km';
+  final km = (meters / 1000).toStringAsFixed(3);
+  return '${km.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '')} km';
+}
 
 class JadwalKaryawanScreen extends StatefulWidget {
   const JadwalKaryawanScreen({super.key});
@@ -24,6 +35,15 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
   String? _error;
 
   String get _tanggalApi => _tanggal.toIso8601String().substring(0, 10);
+
+  Map<String, dynamic>? get _selectedLocation {
+    for (final location in _locations) {
+      if (int.tryParse(location['id'].toString()) == _locationId) {
+        return location;
+      }
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -267,7 +287,7 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
                   subtitle: Text(
                     location['latitude'] != null &&
                             location['longitude'] != null
-                        ? 'GPS aktif • radius ${location['radius_meters']} m'
+                        ? 'GPS aktif • batas absen ${_formatRadiusKm(location['radius_meters'])}'
                         : 'GPS belum diatur',
                   ),
                   trailing: Wrap(
@@ -408,7 +428,7 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
                       child: Text('Belum ada jadwal untuk tanggal ini.')),
                 )
               else
-                for (final slot in _slots) _buildSlot(slot),
+                ..._buildLocationGroups(),
             ],
           ),
         ),
@@ -533,20 +553,36 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
                     ),
                   SizedBox(
                     width: 290,
-                    child: DropdownButtonFormField<int>(
-                      initialValue: _locationId,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Lokasi kerja',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: _locations
-                          .map((location) => DropdownMenuItem<int>(
-                                value: int.parse(location['id'].toString()),
-                                child: Text(location['nama'].toString()),
-                              ))
-                          .toList(),
-                      onChanged: (id) => setState(() => _locationId = id),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        DropdownButtonFormField<int>(
+                          initialValue: _locationId,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Lokasi kerja',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: _locations
+                              .map((location) => DropdownMenuItem<int>(
+                                    value: int.parse(location['id'].toString()),
+                                    child: Text(location['nama'].toString()),
+                                  ))
+                              .toList(),
+                          onChanged: (id) => setState(() => _locationId = id),
+                        ),
+                        if (_selectedLocation != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4, left: 4),
+                            child: Text(
+                              'Batas absen: ${_formatRadiusKm(_selectedLocation!['radius_meters'])} dari titik GPS lokasi. Atur melalui Kelola lokasi.',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF6B7280),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   OutlinedButton.icon(
@@ -656,6 +692,9 @@ class _LokasiDialogState extends State<_LokasiDialog> {
   late final TextEditingController _latitudeController;
   late final TextEditingController _longitudeController;
   late final TextEditingController _radiusController;
+  final MapController _mapController = MapController();
+  LatLng? _selectedPoint;
+  bool _mapReady = false;
 
   @override
   void initState() {
@@ -667,9 +706,17 @@ class _LokasiDialogState extends State<_LokasiDialog> {
         TextEditingController(text: location?['latitude']?.toString() ?? '');
     _longitudeController =
         TextEditingController(text: location?['longitude']?.toString() ?? '');
+    final radiusMeters = double.tryParse(
+          location?['radius_meters']?.toString() ?? '',
+        ) ??
+        250;
     _radiusController = TextEditingController(
-      text: location?['radius_meters']?.toString() ?? '250',
+      text: (radiusMeters / 1000)
+          .toStringAsFixed(3)
+          .replaceFirst(RegExp(r'0+$'), '')
+          .replaceFirst(RegExp(r'\.$'), ''),
     );
+    _selectedPoint = _parsePoint();
   }
 
   @override
@@ -689,6 +736,55 @@ class _LokasiDialogState extends State<_LokasiDialog> {
         coordinate > max) {
       return 'Koordinat tidak valid';
     }
+    return null;
+  }
+
+  LatLng? _parsePoint() {
+    final latitude = double.tryParse(_latitudeController.text.trim());
+    final longitude = double.tryParse(_longitudeController.text.trim());
+    if (latitude == null ||
+        longitude == null ||
+        !latitude.isFinite ||
+        !longitude.isFinite ||
+        latitude < -90 ||
+        latitude > 90 ||
+        longitude < -180 ||
+        longitude > 180) {
+      return null;
+    }
+    return LatLng(latitude, longitude);
+  }
+
+  void _syncPointFromFields() {
+    final point = _parsePoint();
+    if (point == null) return;
+    setState(() => _selectedPoint = point);
+    if (_mapReady) _mapController.move(point, _mapController.camera.zoom);
+  }
+
+  void _setPoint(LatLng point) {
+    _latitudeController.text = point.latitude.toStringAsFixed(7);
+    _longitudeController.text = point.longitude.toStringAsFixed(7);
+    setState(() => _selectedPoint = point);
+  }
+
+  void _syncPointFromMapTap(TapPosition _, LatLng point) => _setPoint(point);
+
+  double? get _radiusMeters {
+    final km = double.tryParse(
+      _radiusController.text.trim().replaceAll(',', '.'),
+    );
+    if (km == null || !km.isFinite || km <= 0 || km > 10) return null;
+    final meters = (km * 1000).round();
+    return meters > 0 ? meters.toDouble() : null;
+  }
+
+  String? _validateRadiusKm(String? value) {
+    final km = double.tryParse((value ?? '').trim().replaceAll(',', '.'));
+    if (km == null || !km.isFinite || km <= 0 || km > 10) {
+      return 'Radius harus lebih dari 0 sampai 10 km';
+    }
+    if (km < 0.001) return 'Radius minimal 0,001 km';
     return null;
   }
 
@@ -718,6 +814,7 @@ class _LokasiDialogState extends State<_LokasiDialog> {
                         decimal: true, signed: true),
                     decoration: const InputDecoration(labelText: 'Latitude'),
                     validator: (value) => _validateCoordinate(value, -90, 90),
+                    onChanged: (_) => _syncPointFromFields(),
                   ),
                   TextFormField(
                     controller: _longitudeController,
@@ -725,22 +822,113 @@ class _LokasiDialogState extends State<_LokasiDialog> {
                         decimal: true, signed: true),
                     decoration: const InputDecoration(labelText: 'Longitude'),
                     validator: (value) => _validateCoordinate(value, -180, 180),
+                    onChanged: (_) => _syncPointFromFields(),
                   ),
+                  const SizedBox(height: 14),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Titik lokasi kerja',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 260,
+                    width: double.infinity,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: FlutterMap(
+                        mapController: _mapController,
+                        options: MapOptions(
+                          initialCenter:
+                              _selectedPoint ?? const LatLng(-2.5, 118),
+                          initialZoom: _selectedPoint == null ? 4 : 15,
+                          minZoom: 3,
+                          maxZoom: 19,
+                          onMapReady: () => _mapReady = true,
+                          onTap: _syncPointFromMapTap,
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate:
+                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'admin_web',
+                          ),
+                          if (_selectedPoint != null && _radiusMeters != null)
+                            CircleLayer(
+                              circles: [
+                                CircleMarker(
+                                  point: _selectedPoint!,
+                                  radius: _radiusMeters!,
+                                  useRadiusInMeter: true,
+                                  color: const Color(0x334F46E5),
+                                  borderColor: const Color(0xFF4F46E5),
+                                  borderStrokeWidth: 2,
+                                ),
+                              ],
+                            ),
+                          if (_selectedPoint != null)
+                            DragMarkers(
+                              markers: [
+                                DragMarker(
+                                  point: _selectedPoint!,
+                                  size: const Size(46, 46),
+                                  alignment: Alignment.bottomCenter,
+                                  builder: (_, __, isDragging) => Icon(
+                                    Icons.location_on,
+                                    size: 42,
+                                    color: isDragging
+                                        ? const Color(0xFFDC2626)
+                                        : const Color(0xFF4F46E5),
+                                  ),
+                                  onDragEnd: (_, point) => _setPoint(point),
+                                ),
+                              ],
+                            ),
+                          RichAttributionWidget(
+                            alignment: AttributionAlignment.bottomRight,
+                            attributions: [
+                              TextSourceAttribution(
+                                '© OpenStreetMap contributors',
+                                onTap: () {
+                                  launchUrl(
+                                    Uri.parse(
+                                      'https://www.openstreetmap.org/copyright',
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Klik peta atau tarik pin untuk menentukan titik GPS.',
+                      style: TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   TextFormField(
                     controller: _radiusController,
-                    keyboardType: TextInputType.number,
-                    decoration:
-                        const InputDecoration(labelText: 'Radius (meter)'),
-                    validator: (value) {
-                      final radius = int.tryParse(value?.trim() ?? '');
-                      return radius == null || radius < 1 || radius > 10000
-                          ? 'Radius harus 1–10000 meter'
-                          : null;
-                    },
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Batas radius absen (km)',
+                      hintText: 'Contoh: 0,25',
+                    ),
+                    onChanged: (_) => setState(() {}),
+                    validator: _validateRadiusKm,
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Gunakan koordinat titik lokasi kerja, bukan lokasi admin.',
+                    'Absen hanya diterima dalam radius ini dari koordinat titik lokasi kerja.',
                     style: TextStyle(fontSize: 12, color: Colors.black54),
                   ),
                 ],
@@ -760,7 +948,7 @@ class _LokasiDialogState extends State<_LokasiDialog> {
                 'nama': _nameController.text.trim(),
                 'latitude': double.parse(_latitudeController.text.trim()),
                 'longitude': double.parse(_longitudeController.text.trim()),
-                'radius_meters': int.parse(_radiusController.text.trim()),
+                'radius_meters': _radiusMeters!.toInt(),
               });
             },
             child: const Text('Simpan'),

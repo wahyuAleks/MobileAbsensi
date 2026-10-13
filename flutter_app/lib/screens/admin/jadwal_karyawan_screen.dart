@@ -2,6 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/api_service.dart';
 
+String _formatRadiusKm(Object? radiusMeters) {
+  final meters = double.tryParse(radiusMeters?.toString() ?? '');
+  if (meters == null || !meters.isFinite) return '0 km';
+  final km = (meters / 1000).toStringAsFixed(3);
+  return '${km.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '')} km';
+}
+
 class JadwalKaryawanScreen extends StatefulWidget {
   final VoidCallback onOpenDrawer;
   final VoidCallback onBack;
@@ -210,7 +217,7 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
                         subtitle: Text(
                           location['latitude'] != null &&
                                   location['longitude'] != null
-                              ? 'GPS aktif • radius ${location['radius_meters']} m'
+                              ? 'GPS aktif • batas absen ${_formatRadiusKm(location['radius_meters'])}'
                               : 'GPS belum diatur',
                         ),
                         trailing: Wrap(
@@ -526,6 +533,15 @@ class _JadwalDialogState extends State<_JadwalDialog> {
   late TimeOfDay _start;
   late TimeOfDay _end;
 
+  Map<String, dynamic>? get _selectedLocation {
+    for (final location in widget.locations) {
+      if (int.tryParse(location['id'].toString()) == _locationId) {
+        return location;
+      }
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -646,6 +662,19 @@ class _JadwalDialogState extends State<_JadwalDialog> {
                     .toList(),
                 onChanged: (value) => setState(() => _locationId = value),
               ),
+              if (_selectedLocation != null) ...[
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Batas absen: ${_formatRadiusKm(_selectedLocation!['radius_meters'])} dari titik GPS lokasi. Atur melalui Kelola lokasi.',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 10),
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -732,8 +761,15 @@ class _LokasiDialogState extends State<_LokasiDialog> {
         TextEditingController(text: location?['latitude']?.toString() ?? '');
     _longitudeController =
         TextEditingController(text: location?['longitude']?.toString() ?? '');
+    final radiusMeters = double.tryParse(
+          location?['radius_meters']?.toString() ?? '',
+        ) ??
+        250;
     _radiusController = TextEditingController(
-      text: location?['radius_meters']?.toString() ?? '250',
+      text: (radiusMeters / 1000)
+          .toStringAsFixed(3)
+          .replaceFirst(RegExp(r'0+$'), '')
+          .replaceFirst(RegExp(r'\.$'), ''),
     );
   }
 
@@ -755,6 +791,12 @@ class _LokasiDialogState extends State<_LokasiDialog> {
       return 'Koordinat tidak valid';
     }
     return null;
+  }
+
+  int? _radiusMetersFromKilometers(String? value) {
+    final km = double.tryParse((value ?? '').trim().replaceAll(',', '.'));
+    if (km == null || !km.isFinite || km < 0.001 || km > 10) return null;
+    return (km * 1000).round();
   }
 
   @override
@@ -794,19 +836,21 @@ class _LokasiDialogState extends State<_LokasiDialog> {
                   ),
                   TextFormField(
                     controller: _radiusController,
-                    keyboardType: TextInputType.number,
-                    decoration:
-                        const InputDecoration(labelText: 'Radius (meter)'),
-                    validator: (value) {
-                      final radius = int.tryParse(value?.trim() ?? '');
-                      return radius == null || radius < 1 || radius > 10000
-                          ? 'Radius harus 1–10000 meter'
-                          : null;
-                    },
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Batas radius absen (km)',
+                      hintText: 'Contoh: 0,25',
+                    ),
+                    validator: (value) =>
+                        _radiusMetersFromKilometers(value) == null
+                            ? 'Radius harus 0,001–10 km'
+                            : null,
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Gunakan koordinat titik lokasi kerja, bukan lokasi admin.',
+                    'Absen hanya diterima dalam radius ini dari koordinat titik lokasi kerja.',
                     style: TextStyle(fontSize: 12, color: Colors.black54),
                   ),
                 ],
@@ -826,7 +870,8 @@ class _LokasiDialogState extends State<_LokasiDialog> {
                 'nama': _nameController.text.trim(),
                 'latitude': double.parse(_latitudeController.text.trim()),
                 'longitude': double.parse(_longitudeController.text.trim()),
-                'radius_meters': int.parse(_radiusController.text.trim()),
+                'radius_meters':
+                    _radiusMetersFromKilometers(_radiusController.text)!,
               });
             },
             child: const Text('Simpan'),

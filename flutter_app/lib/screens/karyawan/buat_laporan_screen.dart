@@ -264,19 +264,35 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
     return position;
   }
 
-  /// Validates GPS against selected master location coordinates.
-  /// Returns (distance, withinRadius). Never throws — caller handles.
-  Future<(double, bool)> _validasiLokasiGps(Position posisi) async {
-    final lokasi = _lokasiTerpilih;
-    if (lokasi == null) return (0.0, true);
-
+  (double, double, double) _koordinatLokasiGps(
+    Map<String, dynamic>? lokasi,
+  ) {
+    lokasi ??= _lokasiTerpilih;
+    if (lokasi == null) {
+      throw StateError('Pilih lokasi kerja terlebih dahulu.');
+    }
     final lat = double.tryParse(lokasi['latitude']?.toString() ?? '');
     final lng = double.tryParse(lokasi['longitude']?.toString() ?? '');
-    if (lat == null || lng == null) return (0.0, true); // coords not set, skip
+    if (lat == null || lng == null || !lat.isFinite || !lng.isFinite) {
+      throw StateError(
+        'Koordinat GPS lokasi kerja belum diatur. Minta admin melengkapi lokasi ini.',
+      );
+    }
 
     final radius =
         double.tryParse(lokasi['radius_meters']?.toString() ?? '') ?? 500;
+    if (!radius.isFinite || radius <= 0) {
+      throw StateError('Radius GPS lokasi kerja tidak valid.');
+    }
+    return (lat, lng, radius);
+  }
 
+  /// Validates GPS against the selected master location and its configured radius.
+  (double, bool) _validasiLokasiGps(
+    Position posisi, {
+    Map<String, dynamic>? lokasi,
+  }) {
+    final (lat, lng, radius) = _koordinatLokasiGps(lokasi);
     final jarak = Geolocator.distanceBetween(
       posisi.latitude,
       posisi.longitude,
@@ -284,6 +300,45 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
       lng,
     );
     return (jarak, jarak <= radius);
+  }
+
+  void _pilihLokasi(int? value) {
+    Map<String, dynamic>? lokasi;
+    for (final item in _lokasiList) {
+      if (int.tryParse(item['id']?.toString() ?? '') == value) {
+        lokasi = item;
+        break;
+      }
+    }
+    if (value != null && lokasi == null) return;
+
+    try {
+      if (_posisiPerFoto.isNotEmpty && lokasi == null) {
+        throw StateError(
+          'Hapus foto terlebih dahulu sebelum mengosongkan lokasi kerja.',
+        );
+      }
+      for (final posisi in _posisiPerFoto) {
+        if (posisi == null) {
+          throw StateError(
+            'Hapus foto yang belum memiliki data GPS sebelum mengganti lokasi.',
+          );
+        }
+        final (_, dalamRadius) = _validasiLokasiGps(posisi, lokasi: lokasi);
+        if (!dalamRadius) {
+          throw StateError(
+            'Hapus foto di luar radius lokasi yang dipilih sebelum mengganti lokasi kerja.',
+          );
+        }
+      }
+    } on StateError catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+      return;
+    }
+
+    setState(() => _lokasiId = value);
   }
 
   Future<void> _pastikanNamaKaryawan() async {
@@ -302,8 +357,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
     await Session.setNama(namaProfil);
   }
 
-  /// Picks a single photo, validates GPS permissively, returns (file, posisi, waktu).
-  /// Shows confirmation dialog if outside radius instead of throwing.
+  /// Picks a photo only when its current GPS position matches the selected location.
   Future<(File, Position?, DateTime)?> _ambilSatuFoto(
       ImageSource source) async {
     final image = await _imagePicker.pickImage(
@@ -315,62 +369,30 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
     if (image == null) return null;
 
     final waktu = DateTime.now();
-
-    // Try to get GPS
-    Position? posisi;
-    try {
-      posisi = await _dapatkanPosisiGps();
-    } catch (_) {
-      posisi = null;
-    }
+    final posisi = await _dapatkanPosisiGps();
 
     if (!mounted) return null;
 
-    // Validate radius if we have both GPS and configured master location coords
-    if (posisi != null) {
-      final (jarak, dalamRadius) = await _validasiLokasiGps(posisi);
-      if (!dalamRadius) {
-        final lokasiNama = _lokasiNamaTerpilih;
-        final lanjut = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            title: const Text('Di Luar Radius Lokasi'),
-            content: Text(
-              'Posisi Anda ${jarak.toStringAsFixed(0)} m dari "${lokasiNama}".\n\n'
-              'Tetap lanjutkan mengambil foto dokumentasi ini?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Batal'),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppConstants.primaryColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Tetap Lanjutkan'),
-              ),
-            ],
-          ),
-        );
-        if (lanjut != true) return null;
-      }
+    final (jarak, dalamRadius) = _validasiLokasiGps(posisi);
+    if (!dalamRadius) {
+      final lokasi = _lokasiTerpilih!;
+      final radius =
+          double.tryParse(lokasi['radius_meters']?.toString() ?? '') ?? 500;
+      throw StateError(
+        'Foto ditolak: GPS berada ${jarak.toStringAsFixed(0)} m dari '
+        '"$_lokasiNamaTerpilih" (batas ${radius.toStringAsFixed(0)} m). '
+        'Ambil foto di lokasi kerja yang dipilih.',
+      );
     }
 
     return (File(image.path), posisi, waktu);
   }
 
   Future<void> _pilihDokumentasi() async {
-    if (_dokumentasiFiles.length + _draftDokumentasiPaths.length >= _maxFoto) {
+    if (_dokumentasiFiles.length >= _maxFoto) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Maksimal $_maxFoto foto dokumentasi.'),
+        const SnackBar(
+          content: Text('Maksimal 10 foto dokumentasi.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -389,12 +411,20 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
     if (!mounted) return;
 
     // Check lokasi selected
-    if (_lokasiId == null && _lokasiList.isNotEmpty) {
+    if (_lokasiTerpilih == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Pilih lokasi kerja terlebih dahulu.'),
           backgroundColor: Colors.orange,
         ),
+      );
+      return;
+    }
+    try {
+      _koordinatLokasiGps(_lokasiTerpilih);
+    } on StateError catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
       );
       return;
     }
@@ -451,6 +481,31 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
     setState(() {
       _draftDokumentasiPaths.removeAt(index);
     });
+  }
+
+  void _validasiFotoUntukDikirim() {
+    if (_draftDokumentasiPaths.isNotEmpty && _dokumentasiFiles.isEmpty) {
+      throw StateError(
+        'Foto pada draft belum memiliki validasi GPS. Tambahkan foto baru '
+        'yang GPS-nya cocok dengan lokasi kerja untuk mengganti lampiran lama.',
+      );
+    }
+    if (_dokumentasiFiles.isEmpty) return;
+    for (final posisi in _posisiPerFoto) {
+      if (posisi == null) {
+        throw StateError(
+          'Semua foto harus memiliki GPS yang cocok dengan lokasi kerja. '
+          'Hapus lalu ambil ulang foto yang tidak memiliki GPS.',
+        );
+      }
+      final (_, dalamRadius) = _validasiLokasiGps(posisi);
+      if (!dalamRadius) {
+        throw StateError(
+          'Lokasi kerja berubah dan tidak cocok dengan GPS salah satu foto. '
+          'Hapus foto yang tidak sesuai lalu ambil ulang.',
+        );
+      }
+    }
   }
 
   /// Add watermark tag to a single File photo, returns the tagged temp File.
@@ -637,6 +692,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
         throw StateError('Pilih jenis kegiatan dari data master.');
       }
 
+      _validasiFotoUntukDikirim();
       fotosBertag.addAll(await _siapkanSemuaFotoBertag());
 
       final draftId = _draftId;
@@ -968,11 +1024,9 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
                                 child: Text(item['nama'].toString()),
                               );
                             }).whereType<DropdownMenuItem<int>>().toList(),
-                            onChanged: _lokasiList.isEmpty
+                            onChanged: _submitting || _lokasiList.isEmpty
                                 ? null
-                                : (value) {
-                                    setState(() => _lokasiId = value);
-                                  },
+                                : _pilihLokasi,
                           ),
                         const SizedBox(height: 16),
 
