@@ -14,6 +14,7 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
   List<Map<String, dynamic>> _employees = [];
   List<Map<String, dynamic>> _locations = [];
   int? _employeeId;
+  final Set<int> _selectedEmployeeIds = {};
   int? _locationId;
   int? _editingId;
   TimeOfDay _start = const TimeOfDay(hour: 8, minute: 0);
@@ -84,6 +85,7 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
   void _resetForm() {
     _editingId = null;
     _employeeId = null;
+    _selectedEmployeeIds.clear();
     _locationId = null;
     _start = const TimeOfDay(hour: 8, minute: 0);
     _end = const TimeOfDay(hour: 17, minute: 0);
@@ -98,6 +100,8 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
     setState(() {
       _editingId = int.tryParse(slot['id'].toString());
       _employeeId = int.tryParse(slot['user_id'].toString());
+      _selectedEmployeeIds.clear();
+      if (_employeeId != null) _selectedEmployeeIds.add(_employeeId!);
       _locationId = int.tryParse(slot['location_id'].toString());
       _start = _parseTime(slot['jam_mulai']?.toString()) ?? _start;
       _end = _parseTime(slot['jam_selesai']?.toString()) ?? _end;
@@ -132,8 +136,16 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
   }
 
   Future<void> _simpan() async {
-    if (_employeeId == null || _locationId == null) {
-      _message('Pilih karyawan dan lokasi kerja terlebih dahulu.');
+    if (_locationId == null) {
+      _message('Pilih lokasi kerja terlebih dahulu.');
+      return;
+    }
+    if (_editingId == null && _selectedEmployeeIds.isEmpty) {
+      _message('Pilih minimal 1 karyawan untuk dijadwalkan.');
+      return;
+    }
+    if (_editingId != null && _employeeId == null) {
+      _message('Pilih karyawan terlebih dahulu.');
       return;
     }
     final start = _timeString(_start);
@@ -144,17 +156,31 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
     }
     setState(() => _saving = true);
     try {
-      await ApiService.simpanJadwalKerja(
-        id: _editingId,
-        userId: _employeeId!,
-        locationId: _locationId!,
-        tanggal: _tanggalApi,
-        jamMulai: start,
-        jamSelesai: end,
-      );
-      _resetForm();
-      await _muat();
-      if (mounted) _message('Jadwal kerja berhasil disimpan.');
+      if (_editingId == null) {
+        await ApiService.simpanJadwalKerjaUntukBanyakKaryawan(
+          userIds: _selectedEmployeeIds.toList(),
+          locationId: _locationId!,
+          tanggal: _tanggalApi,
+          jamMulai: start,
+          jamSelesai: end,
+        );
+        final count = _selectedEmployeeIds.length;
+        _resetForm();
+        await _muat();
+        if (mounted) _message('Jadwal kerja berhasil disimpan untuk $count karyawan.');
+      } else {
+        await ApiService.simpanJadwalKerja(
+          id: _editingId,
+          userId: _employeeId!,
+          locationId: _locationId!,
+          tanggal: _tanggalApi,
+          jamMulai: start,
+          jamSelesai: end,
+        );
+        _resetForm();
+        await _muat();
+        if (mounted) _message('Jadwal kerja berhasil diperbarui.');
+      }
     } catch (e) {
       if (mounted) _message('Gagal menyimpan jadwal: $e');
     } finally {
@@ -407,28 +433,104 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
                     const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
               ),
               const SizedBox(height: 14),
+              if (_editingId == null) ...[
+                Row(
+                  children: [
+                    Text(
+                      'Pilih Karyawan (${_selectedEmployeeIds.length} dipilih)',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                    const SizedBox(width: 12),
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _selectedEmployeeIds.clear();
+                          for (final e in _employees) {
+                            final id = int.tryParse(e['id'].toString());
+                            if (id != null) _selectedEmployeeIds.add(id);
+                          }
+                        });
+                      },
+                      icon: const Icon(Icons.select_all_rounded, size: 16),
+                      label: const Text('Pilih Semua'),
+                    ),
+                    const SizedBox(width: 8),
+                    if (_selectedEmployeeIds.isNotEmpty)
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() => _selectedEmployeeIds.clear());
+                        },
+                        icon: const Icon(Icons.clear_all_rounded, size: 16),
+                        label: const Text('Batal Semua'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 180),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: SingleChildScrollView(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _employees.map((employee) {
+                        final id = int.tryParse(employee['id'].toString());
+                        if (id == null) return const SizedBox.shrink();
+                        final isSelected = _selectedEmployeeIds.contains(id);
+                        final nama = (employee['nama'] ?? 'Karyawan').toString();
+                        return FilterChip(
+                          selected: isSelected,
+                          showCheckmark: true,
+                          label: Text(nama),
+                          selectedColor: const Color(0xFFE0E7FF),
+                          labelStyle: TextStyle(
+                            color: isSelected ? const Color(0xFF4338CA) : const Color(0xFF374151),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedEmployeeIds.add(id);
+                              } else {
+                                _selectedEmployeeIds.remove(id);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               Wrap(
                 spacing: 14,
                 runSpacing: 12,
                 children: [
-                  SizedBox(
-                    width: 290,
-                    child: DropdownButtonFormField<int>(
-                      initialValue: _employeeId,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Karyawan',
-                        border: OutlineInputBorder(),
+                  if (_editingId != null)
+                    SizedBox(
+                      width: 290,
+                      child: DropdownButtonFormField<int>(
+                        initialValue: _employeeId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Karyawan',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _employees
+                            .map((employee) => DropdownMenuItem<int>(
+                                  value: int.parse(employee['id'].toString()),
+                                  child: Text(employee['nama'].toString()),
+                                ))
+                            .toList(),
+                        onChanged: (id) => setState(() => _employeeId = id),
                       ),
-                      items: _employees
-                          .map((employee) => DropdownMenuItem<int>(
-                                value: int.parse(employee['id'].toString()),
-                                child: Text(employee['nama'].toString()),
-                              ))
-                          .toList(),
-                      onChanged: (id) => setState(() => _employeeId = id),
                     ),
-                  ),
                   SizedBox(
                     width: 290,
                     child: DropdownButtonFormField<int>(
@@ -466,7 +568,11 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
                   FilledButton.icon(
                     onPressed: _saving ? null : _simpan,
                     icon: const Icon(Icons.save_outlined),
-                    label: Text(_saving ? 'Menyimpan...' : 'Simpan jadwal'),
+                    label: Text(_saving
+                        ? 'Menyimpan...'
+                        : (_editingId == null
+                            ? 'Simpan jadwal (${_selectedEmployeeIds.length} karyawan)'
+                            : 'Perbarui jadwal')),
                   ),
                   if (_editingId != null)
                     TextButton(

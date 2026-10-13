@@ -40,7 +40,7 @@ const Laporan = sequelize.define('Laporan', {
     type: DataTypes.STRING,
     defaultValue: 'Terkirim',
   },
-  lampiran: DataTypes.STRING,
+  lampiran: DataTypes.TEXT,
 }, {
   tableName: 'laporan',
   timestamps: true,

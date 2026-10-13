@@ -172,45 +172,6 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
           ),
         ),
         actions: [
-          if (item['can_edit'] == true)
-            TextButton.icon(
-              onPressed: () async {
-                final edited = await showDialog<Map<String, String>>(
-                  context: ctx,
-                  builder: (_) => _EditLaporanDialog(laporan: item),
-                );
-                if (edited == null || !mounted) return;
-                try {
-                  await ApiService.editLaporanAdmin(
-                    int.parse(item['id'].toString()),
-                    tanggal: edited['tanggal']!,
-                    judul: edited['judul']!,
-                    isiLaporan: edited['isi_laporan']!,
-                    jenisKegiatan: edited['jenis_kegiatan'],
-                    lokasi: edited['lokasi'],
-                    unitDrone: edited['unit_drone'],
-                    luasArea: edited['luas_area'],
-                    uraianPekerjaan: edited['uraian_pekerjaan'],
-                    hasil: edited['hasil'],
-                    rencanaEsok: edited['rencana_esok'],
-                  );
-                  if (!mounted) return;
-                  Navigator.pop(context);
-                  _muat();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Laporan berhasil diperbarui.')),
-                  );
-                } catch (e) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Gagal mengedit laporan: $e')),
-                  );
-                }
-              },
-              icon: const Icon(Icons.edit_outlined),
-              label: const Text('Edit laporan'),
-            ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Tutup',

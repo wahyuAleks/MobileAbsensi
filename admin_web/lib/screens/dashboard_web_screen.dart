@@ -34,6 +34,8 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
     'Rekap Absensi',
     'Persetujuan Cuti',
     'Rekap Laporan',
+    'Jadwal Karyawan',
+    'Master Jenis Kegiatan',
     'Profil Admin',
   ];
 
@@ -150,7 +152,7 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
                 AdminHeader(
                   title: _titles[_index],
                   onOpenNotifikasi: _bukaNotifikasi,
-                  onBukaProfil: () => _pindahTab(6),
+                  onBukaProfil: () => _pindahTab(8),
                 ),
                 Expanded(
                   child: IndexedStack(

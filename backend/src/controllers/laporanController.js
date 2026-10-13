@@ -3,6 +3,15 @@ const User = require('../models/User');
 const { Op } = require('sequelize');
 const jenisKegiatanController = require('./jenisKegiatanController');
 
+function getLampiranPaths(req, existingLampiran = null) {
+  const files = req.files || (req.file ? [req.file] : []);
+  if (files && files.length > 0) {
+    const paths = files.map(f => `/uploads/laporan/${f.filename}`);
+    return paths.length === 1 ? paths[0] : JSON.stringify(paths);
+  }
+  return existingLampiran;
+}
+
 // FORM LAPORAN -> SUBMIT
 exports.submitLaporan = async (req, res) => {
   try {
@@ -62,7 +71,7 @@ exports.submitLaporan = async (req, res) => {
       hasil: hasil || '',
       rencana_esok: rencana_esok || '',
       status: reportStatus === 'draft' ? 'Draft' : 'Terkirim',
-      lampiran: req.file ? `/uploads/laporan/${req.file.filename}` : null,
+      lampiran: getLampiranPaths(req, null),
     });
 
     res.status(201).json({
@@ -133,7 +142,7 @@ exports.updateDraft = async (req, res) => {
       uraian_pekerjaan: uraian_pekerjaan ?? body,
       hasil: hasil ?? laporan.hasil,
       rencana_esok: rencana_esok ?? laporan.rencana_esok,
-      lampiran: req.file ? `/uploads/laporan/${req.file.filename}` : laporan.lampiran,
+      lampiran: getLampiranPaths(req, laporan.lampiran),
     });
 
     res.json({ message: 'Draft laporan berhasil diperbarui', data: laporan });
@@ -205,7 +214,7 @@ exports.kirimDraft = async (req, res) => {
       uraian_pekerjaan: uraian_pekerjaan ?? body,
       hasil: hasil ?? laporan.hasil,
       rencana_esok: rencana_esok ?? laporan.rencana_esok,
-      lampiran: req.file ? `/uploads/laporan/${req.file.filename}` : laporan.lampiran,
+      lampiran: getLampiranPaths(req, laporan.lampiran),
       status: 'Terkirim',
     });
 
@@ -271,8 +280,8 @@ exports.editLaporanAdmin = async (req, res) => {
     updates.judul = judul;
     updates.isi_laporan = updates.isi_laporan ?? uraian;
     updates.uraian_pekerjaan = uraian;
-    if (req.file) {
-      updates.lampiran = `/uploads/laporan/${req.file.filename}`;
+    if ((req.files && req.files.length) || req.file) {
+      updates.lampiran = getLampiranPaths(req, laporan.lampiran);
     }
 
     await laporan.update(updates);

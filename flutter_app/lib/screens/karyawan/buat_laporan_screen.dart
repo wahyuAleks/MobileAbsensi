@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -5,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
-import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../core/api_service.dart';
 import '../../core/constants.dart';
@@ -26,30 +26,39 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
 
   DateTime _tanggal = DateTime.now();
   final _judulCtrl = TextEditingController();
-  final _lokasiCtrl = TextEditingController(text: 'Sawah Blok A — Karawang');
   final _unitDroneCtrl = TextEditingController(text: 'DA-001 (DJI Agras T40)');
   final _luasAreaCtrl = TextEditingController(text: '8 Ha');
   final _uraianCtrl = TextEditingController();
   final _hasilCtrl = TextEditingController();
   final _rencanaEsokCtrl = TextEditingController();
   final _imagePicker = ImagePicker();
-  File? _dokumentasiFile;
-  String? _dokumentasiPath;
-  DateTime? _waktuDokumentasi;
+
+  // Multi-photo state
+  final List<File> _dokumentasiFiles = [];
+  final List<String> _draftDokumentasiPaths = [];
+  static const int _maxFoto = 10;
+
+  // Per-photo GPS metadata
+  final List<Position?> _posisiPerFoto = [];
+  final List<DateTime?> _waktuPerFoto = [];
+
   String? _namaKaryawan;
-  Position? _posisiDokumentasi;
-  double? _jarakLokasiGps;
-  bool _lokasiGpsTidakSesuai = false;
 
-  static const double _radiusCocokLokasiMeter = 500;
-  static const double _akurasiGpsMaksimalMeter = 100;
+  // Lokasi dropdown state
+  List<Map<String, dynamic>> _lokasiList = [];
+  int? _lokasiId;
+  bool _lokasiLoading = true;
+  String? _lokasiError;
 
+  // Jenis kegiatan state
   List<Map<String, dynamic>> _jenisKegiatanList = [];
   int? _jenisKegiatanId;
   bool _jenisKegiatanLoading = true;
   String? _jenisKegiatanError;
 
   bool _submitting = false;
+
+  static const double _akurasiGpsMaksimalMeter = 150;
 
   int? get _draftId {
     final id = widget.draft?['id'];
@@ -65,6 +74,15 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
     return '';
   }
 
+  Map<String, dynamic>? get _lokasiTerpilih {
+    for (final l in _lokasiList) {
+      if (int.tryParse(l['id'].toString()) == _lokasiId) return l;
+    }
+    return null;
+  }
+
+  String get _lokasiNamaTerpilih => _lokasiTerpilih?['nama']?.toString() ?? '';
+
   @override
   void initState() {
     super.initState();
@@ -77,7 +95,6 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
       _judulCtrl.text = draft['judul']?.toString() == 'Draft tanpa judul'
           ? ''
           : draft['judul']?.toString() ?? '';
-      _lokasiCtrl.text = draft['lokasi']?.toString() ?? '';
       _unitDroneCtrl.text = draft['unit_drone']?.toString() ?? '';
       _luasAreaCtrl.text = draft['luas_area']?.toString() ?? '';
       _uraianCtrl.text =
@@ -87,12 +104,68 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
       _jenisKegiatanId = int.tryParse(
         draft['jenis_kegiatan_id']?.toString() ?? '',
       );
-      _dokumentasiPath = draft['lampiran']?.toString();
+      // Restore draft lampiran paths (JSON array or single string)
+      final lampiranRaw = draft['lampiran']?.toString();
+      if (lampiranRaw != null && lampiranRaw.isNotEmpty) {
+        if (lampiranRaw.startsWith('[')) {
+          try {
+            final decoded = jsonDecode(lampiranRaw) as List;
+            _draftDokumentasiPaths
+                .addAll(decoded.map((e) => e.toString()));
+          } catch (_) {
+            _draftDokumentasiPaths.add(lampiranRaw);
+          }
+        } else {
+          _draftDokumentasiPaths.add(lampiranRaw);
+        }
+      }
     }
-    _muatJenisKegiatan();
+    _muatData();
+  }
+
+  Future<void> _muatData() async {
+    await Future.wait([_muatLokasi(), _muatJenisKegiatan()]);
+    // After locations load, match draft lokasi by name
+    if (widget.draft != null && _lokasiId == null) {
+      final draftLokasi = widget.draft!['lokasi']?.toString();
+      if (draftLokasi != null && draftLokasi.isNotEmpty) {
+        final match = _lokasiList.where(
+          (l) => l['nama']?.toString() == draftLokasi,
+        );
+        if (match.isNotEmpty && mounted) {
+          setState(() {
+            _lokasiId = int.tryParse(match.first['id'].toString());
+          });
+        }
+      }
+    }
+  }
+
+  Future<void> _muatLokasi() async {
+    if (!mounted) return;
+    setState(() {
+      _lokasiLoading = true;
+      _lokasiError = null;
+    });
+    try {
+      final results = await ApiService.daftarLokasi();
+      if (!mounted) return;
+      setState(() {
+        _lokasiList =
+            results.map((item) => Map<String, dynamic>.from(item)).toList();
+        _lokasiLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _lokasiLoading = false;
+        _lokasiError = e.toString();
+      });
+    }
   }
 
   Future<void> _muatJenisKegiatan() async {
+    if (!mounted) return;
     setState(() {
       _jenisKegiatanLoading = true;
       _jenisKegiatanError = null;
@@ -100,12 +173,12 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
     try {
       final results = await ApiService.jenisKegiatanAktif();
       if (!mounted) return;
-      final items = results
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList();
+      final items =
+          results.map((item) => Map<String, dynamic>.from(item)).toList();
       final draftName = widget.draft?['jenis_kegiatan']?.toString();
       var selectedId = _jenisKegiatanId;
-      if (!items.any((item) => int.tryParse(item['id'].toString()) == selectedId)) {
+      if (!items
+          .any((item) => int.tryParse(item['id'].toString()) == selectedId)) {
         final matching = items.where((item) => item['nama'] == draftName);
         selectedId = matching.isEmpty
             ? (draftName == null && items.isNotEmpty
@@ -130,7 +203,6 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
   @override
   void dispose() {
     _judulCtrl.dispose();
-    _lokasiCtrl.dispose();
     _unitDroneCtrl.dispose();
     _luasAreaCtrl.dispose();
     _uraianCtrl.dispose();
@@ -192,47 +264,119 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
     return position;
   }
 
-  Future<double> _validasiLokasiGps(
-    String lokasi,
-    Position posisi,
-  ) async {
-    late final List<Location> hasilGeocoding;
-    try {
-      hasilGeocoding = await locationFromAddress(lokasi);
-    } catch (e) {
-      throw StateError(
-        'Lokasi/Area "$lokasi" tidak dapat diverifikasi melalui peta. '
-        'Periksa koneksi internet dan tulis lokasi yang lebih lengkap. ($e)',
-      );
+  /// Validates GPS against selected master location coordinates.
+  /// Returns (distance, withinRadius). Never throws — caller handles.
+  Future<(double, bool)> _validasiLokasiGps(Position posisi) async {
+    final lokasi = _lokasiTerpilih;
+    if (lokasi == null) return (0.0, true);
+
+    final lat = double.tryParse(lokasi['latitude']?.toString() ?? '');
+    final lng = double.tryParse(lokasi['longitude']?.toString() ?? '');
+    if (lat == null || lng == null) return (0.0, true); // coords not set, skip
+
+    final radius =
+        double.tryParse(lokasi['radius_meters']?.toString() ?? '') ?? 500;
+
+    final jarak = Geolocator.distanceBetween(
+      posisi.latitude,
+      posisi.longitude,
+      lat,
+      lng,
+    );
+    return (jarak, jarak <= radius);
+  }
+
+  Future<void> _pastikanNamaKaryawan() async {
+    if (_namaKaryawan?.isNotEmpty ?? false) return;
+    final namaSesi = (await Session.getNama())?.trim();
+    if (namaSesi != null && namaSesi.isNotEmpty) {
+      _namaKaryawan = namaSesi;
+      return;
     }
-    if (hasilGeocoding.isEmpty) {
-      throw StateError(
-        'Lokasi/Area "$lokasi" tidak dapat dicocokkan dengan peta. '
-        'Periksa nama lokasi dan coba lagi.',
-      );
+    final profil = await ApiService.getProfile();
+    final namaProfil = profil['nama']?.toString().trim();
+    if (namaProfil == null || namaProfil.isEmpty) {
+      throw StateError('Nama karyawan belum tersedia di profil.');
+    }
+    _namaKaryawan = namaProfil;
+    await Session.setNama(namaProfil);
+  }
+
+  /// Picks a single photo, validates GPS permissively, returns (file, posisi, waktu).
+  /// Shows confirmation dialog if outside radius instead of throwing.
+  Future<(File, Position?, DateTime)?> _ambilSatuFoto(
+      ImageSource source) async {
+    final image = await _imagePicker.pickImage(
+      source: source,
+      imageQuality: 85,
+      maxWidth: 2000,
+      maxHeight: 2000,
+    );
+    if (image == null) return null;
+
+    final waktu = DateTime.now();
+
+    // Try to get GPS
+    Position? posisi;
+    try {
+      posisi = await _dapatkanPosisiGps();
+    } catch (_) {
+      posisi = null;
     }
 
-    var jarakTerdekat = double.infinity;
-    for (final titik in hasilGeocoding) {
-      final jarak = Geolocator.distanceBetween(
-        posisi.latitude,
-        posisi.longitude,
-        titik.latitude,
-        titik.longitude,
-      );
-      if (jarak < jarakTerdekat) jarakTerdekat = jarak;
+    if (!mounted) return null;
+
+    // Validate radius if we have both GPS and configured master location coords
+    if (posisi != null) {
+      final (jarak, dalamRadius) = await _validasiLokasiGps(posisi);
+      if (!dalamRadius) {
+        final lokasiNama = _lokasiNamaTerpilih;
+        final lanjut = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            title: const Text('Di Luar Radius Lokasi'),
+            content: Text(
+              'Posisi Anda ${jarak.toStringAsFixed(0)} m dari "${lokasiNama}".\n\n'
+              'Tetap lanjutkan mengambil foto dokumentasi ini?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppConstants.primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Tetap Lanjutkan'),
+              ),
+            ],
+          ),
+        );
+        if (lanjut != true) return null;
+      }
     }
-    if (jarakTerdekat > _radiusCocokLokasiMeter) {
-      throw StateError(
-        'Lokasi kerja dan koordinat foto tidak sesuai '
-        '(jarak ${jarakTerdekat.toStringAsFixed(0)} m; batas '
-        '${_radiusCocokLokasiMeter.toStringAsFixed(0)} m dari lokasi laporan.',
-      );
-    }
-    return jarakTerdekat;
+
+    return (File(image.path), posisi, waktu);
   }
 
   Future<void> _pilihDokumentasi() async {
+    if (_dokumentasiFiles.length + _draftDokumentasiPaths.length >= _maxFoto) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Maksimal $_maxFoto foto dokumentasi.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     try {
       await _pastikanNamaKaryawan();
     } catch (e) {
@@ -243,6 +387,17 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
       return;
     }
     if (!mounted) return;
+
+    // Check lokasi selected
+    if (_lokasiId == null && _lokasiList.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pilih lokasi kerja terlebih dahulu.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
 
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
@@ -263,91 +418,49 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
         ),
       ),
     );
-    if (source == null) return;
+    if (source == null || !mounted) return;
 
     try {
-      final image = await _imagePicker.pickImage(
-        source: source,
-        imageQuality: 85,
-        maxWidth: 2000,
-        maxHeight: 2000,
-      );
-      if (image == null || !mounted) return;
-      final lokasi = _lokasiCtrl.text.trim();
-      if (lokasi.isEmpty) {
-        throw StateError('Isi Lokasi / Area sebelum mengambil foto.');
-      }
-      final posisi = await _dapatkanPosisiGps();
-      final jarak = await _validasiLokasiGps(lokasi, posisi);
-      if (!mounted) return;
+      final result = await _ambilSatuFoto(source);
+      if (result == null || !mounted) return;
+      final (file, posisi, waktu) = result;
       setState(() {
-        _dokumentasiFile = File(image.path);
-        _dokumentasiPath = null;
-        _waktuDokumentasi = DateTime.now();
-        _posisiDokumentasi = posisi;
-        _jarakLokasiGps = jarak;
-        _lokasiGpsTidakSesuai = false;
+        _dokumentasiFiles.add(file);
+        _posisiPerFoto.add(posisi);
+        _waktuPerFoto.add(waktu);
       });
     } catch (e) {
       if (!mounted) return;
-      if (e
-          .toString()
-          .contains('Lokasi kerja dan koordinat foto tidak sesuai')) {
-        setState(() {
-          _dokumentasiFile = null;
-          _dokumentasiPath = null;
-          _posisiDokumentasi = null;
-          _jarakLokasiGps = null;
-          _waktuDokumentasi = null;
-          _lokasiGpsTidakSesuai = true;
-        });
-      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            e.toString().replaceFirst('Bad state: ', ''),
-          ),
+          content: Text(e.toString().replaceFirst('Bad state: ', '')),
         ),
       );
     }
   }
 
-  Future<void> _pastikanNamaKaryawan() async {
-    if (_namaKaryawan?.isNotEmpty ?? false) return;
-    final namaSesi = (await Session.getNama())?.trim();
-    if (namaSesi != null && namaSesi.isNotEmpty) {
-      _namaKaryawan = namaSesi;
-      return;
-    }
-
-    final profil = await ApiService.getProfile();
-    final namaProfil = profil['nama']?.toString().trim();
-    if (namaProfil == null || namaProfil.isEmpty) {
-      throw StateError('Nama karyawan belum tersedia di profil.');
-    }
-    _namaKaryawan = namaProfil;
-    await Session.setNama(namaProfil);
+  void _hapusFoto(int index) {
+    setState(() {
+      _dokumentasiFiles.removeAt(index);
+      if (index < _posisiPerFoto.length) _posisiPerFoto.removeAt(index);
+      if (index < _waktuPerFoto.length) _waktuPerFoto.removeAt(index);
+    });
   }
 
-  Future<File?> _siapkanFotoBertag() async {
-    final foto = _dokumentasiFile;
-    if (_lokasiGpsTidakSesuai) {
-      throw StateError(
-        'Lokasi kerja dan koordinat foto tidak sesuai. '
-        'Pilih lokasi kerja yang benar lalu ambil ulang foto dokumentasi.',
-      );
-    }
-    if (foto == null) return null;
+  void _hapusDraftFoto(int index) {
+    setState(() {
+      _draftDokumentasiPaths.removeAt(index);
+    });
+  }
 
+  /// Add watermark tag to a single File photo, returns the tagged temp File.
+  Future<File?> _siapkanFotoBertag(
+    File foto,
+    Position? posisi,
+    DateTime? waktu,
+  ) async {
     await _pastikanNamaKaryawan();
-    final lokasi = _lokasiCtrl.text.trim();
-    if (lokasi.isEmpty) {
-      throw StateError('Isi Lokasi / Area sebelum mengirim foto dokumentasi.');
-    }
-    final posisi = _posisiDokumentasi ?? await _dapatkanPosisiGps();
-    final jarak = await _validasiLokasiGps(lokasi, posisi);
-    _posisiDokumentasi = posisi;
-    _jarakLokasiGps = jarak;
+    final lokasiNama = _lokasiNamaTerpilih;
 
     final codec = await ui.instantiateImageCodec(await foto.readAsBytes());
     final frame = await codec.getNextFrame();
@@ -373,8 +486,13 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
 
     final padding = width * 0.035;
     final fontSize = (width * 0.027).clamp(18.0, 38.0).toDouble();
-    final waktu = DateFormat('dd/MM/yyyy HH:mm')
-        .format(_waktuDokumentasi ?? DateTime.now());
+    final waktuStr =
+        DateFormat('dd/MM/yyyy HH:mm').format(waktu ?? DateTime.now());
+
+    final posisiStr = posisi == null
+        ? 'GPS tidak tersedia'
+        : '${posisi.latitude.toStringAsFixed(6)}, ${posisi.longitude.toStringAsFixed(6)}';
+
     final paragraphBuilder = ui.ParagraphBuilder(
       ui.ParagraphStyle(
         textDirection: ui.TextDirection.ltr,
@@ -391,9 +509,8 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
       )
       ..addText(
         'Nama: $_namaKaryawan\n'
-        'Lokasi: ${_posisiDokumentasi!.latitude.toStringAsFixed(6)}, '
-        '${_posisiDokumentasi!.longitude.toStringAsFixed(6)} - $lokasi\n'
-        'Waktu: $waktu',
+        'Lokasi: $posisiStr${lokasiNama.isNotEmpty ? ' - $lokasiNama' : ''}\n'
+        'Waktu: $waktuStr',
       );
     final paragraph = paragraphBuilder.build()
       ..layout(ui.ParagraphConstraints(
@@ -416,9 +533,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
     source.dispose();
     taggedImage.dispose();
     picture.dispose();
-    if (png == null) {
-      throw StateError('Foto dokumentasi gagal diproses.');
-    }
+    if (png == null) throw StateError('Foto dokumentasi gagal diproses.');
 
     final decoded = img.decodeImage(
       png.buffer.asUint8List(png.offsetInBytes, png.lengthInBytes),
@@ -432,41 +547,28 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
     return File(tempPath).writeAsBytes(jpg, flush: true);
   }
 
-  Widget _buildFotoDenganTag() {
-    final waktu = DateFormat('dd/MM/yyyy HH:mm')
-        .format(_waktuDokumentasi ?? DateTime.now());
-    return Stack(
-      children: [
-        Image.file(
-          _dokumentasiFile!,
-          height: 190,
-          width: double.infinity,
-          fit: BoxFit.cover,
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            color: Colors.black.withValues(alpha: 0.68),
-            child: Text(
-              'Nama: ${_namaKaryawan ?? 'Karyawan'}\n'
-              'Lokasi: ${_posisiDokumentasi == null ? 'GPS belum divalidasi' : '${_posisiDokumentasi!.latitude.toStringAsFixed(6)}, ${_posisiDokumentasi!.longitude.toStringAsFixed(6)}'}'
-              '${_posisiDokumentasi == null ? '' : ' - ${_lokasiCtrl.text.trim()}'}\n'
-              'Waktu: $waktu',
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+  /// Prepares all photos with watermarks, returns list of tagged files.
+  Future<List<File>> _siapkanSemuaFotoBertag() async {
+    final tagged = <File>[];
+    for (var i = 0; i < _dokumentasiFiles.length; i++) {
+      final posisi = i < _posisiPerFoto.length ? _posisiPerFoto[i] : null;
+      final waktu = i < _waktuPerFoto.length ? _waktuPerFoto[i] : null;
+      final f = await _siapkanFotoBertag(_dokumentasiFiles[i], posisi, waktu);
+      if (f != null) tagged.add(f);
+    }
+    return tagged;
+  }
+
+  Future<void> _hapusFotoBertagSementara(List<File> fotoList) async {
+    for (final foto in fotoList) {
+      // Skip if it's the original (shouldn't happen but safety)
+      if (_dokumentasiFiles.any((f) => f.path == foto.path)) continue;
+      try {
+        if (await foto.exists()) await foto.delete();
+      } on FileSystemException catch (e) {
+        debugPrint('Gagal menghapus file foto sementara: $e');
+      }
+    }
   }
 
   String _formatTanggalIndo(DateTime dt, {bool withDay = false}) {
@@ -503,20 +605,30 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
     return '$tgl $bulan $tahun';
   }
 
+  Map<String, String> _dataLaporan(String tanggal) {
+    final uraian = _uraianCtrl.text.trim();
+    return {
+      'tanggal': tanggal,
+      'judul': _judulCtrl.text.trim(),
+      'isi_laporan': uraian,
+      'jenis_kegiatan': _jenisKegiatanTerpilih,
+      'jenis_kegiatan_id': _jenisKegiatanId?.toString() ?? '',
+      'lokasi': _lokasiNamaTerpilih,
+      'unit_drone': _unitDroneCtrl.text.trim(),
+      'luas_area': _luasAreaCtrl.text.trim(),
+      'uraian_pekerjaan': uraian,
+      'hasil': _hasilCtrl.text.trim(),
+      'rencana_esok': _rencanaEsokCtrl.text.trim(),
+    };
+  }
+
   Future<void> _kirimLaporan() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _submitting = true);
     final messenger = ScaffoldMessenger.of(context);
-    File? fotoBertag;
+    final List<File> fotosBertag = [];
 
     try {
-      if (_lokasiGpsTidakSesuai) {
-        throw StateError(
-          'Lokasi kerja dan koordinat foto tidak sesuai. '
-          'Ambil ulang foto dokumentasi di lokasi kerja yang dipilih.',
-        );
-      }
       final tglFormatted = DateFormat('yyyy-MM-dd').format(_tanggal);
       final displayTanggal = _formatTanggalIndo(_tanggal);
       final displayWaktu = DateFormat('HH.mm').format(DateTime.now());
@@ -524,7 +636,8 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
       if (_jenisKegiatanId == null) {
         throw StateError('Pilih jenis kegiatan dari data master.');
       }
-      fotoBertag = await _siapkanFotoBertag();
+
+      fotosBertag.addAll(await _siapkanSemuaFotoBertag());
 
       final draftId = _draftId;
       if (draftId != null) {
@@ -541,7 +654,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
           uraianPekerjaan: data['uraian_pekerjaan'],
           hasil: data['hasil'],
           rencanaEsok: data['rencana_esok'],
-          lampiran: fotoBertag ?? _dokumentasiFile,
+          lampiranList: fotosBertag.isNotEmpty ? fotosBertag : null,
         );
       } else {
         await ApiService.submitLaporan(
@@ -560,13 +673,11 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
           rencanaEsok: data['rencana_esok']!.isNotEmpty
               ? data['rencana_esok']
               : 'Melanjutkan operasional sesuai rencana kerja tim.',
-          lampiran: fotoBertag ?? _dokumentasiFile,
+          lampiranList: fotosBertag.isNotEmpty ? fotosBertag : null,
         );
       }
 
       if (!mounted) return;
-
-      // Buka Status Sukses (gantikan BuatLaporanScreen agar tidak menumpuk stack kosong)
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => LaporanSuksesScreen(
@@ -590,38 +701,15 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
         );
       }
     } finally {
-      await _hapusFotoBertagSementara(fotoBertag);
+      await _hapusFotoBertagSementara(fotosBertag);
     }
-  }
-
-  Map<String, String> _dataLaporan(String tanggal) {
-    final uraian = _uraianCtrl.text.trim();
-    return {
-      'tanggal': tanggal,
-      'judul': _judulCtrl.text.trim(),
-      'isi_laporan': uraian,
-      'jenis_kegiatan': _jenisKegiatanTerpilih,
-      'jenis_kegiatan_id': _jenisKegiatanId?.toString() ?? '',
-      'lokasi': _lokasiCtrl.text.trim(),
-      'unit_drone': _unitDroneCtrl.text.trim(),
-      'luas_area': _luasAreaCtrl.text.trim(),
-      'uraian_pekerjaan': uraian,
-      'hasil': _hasilCtrl.text.trim(),
-      'rencana_esok': _rencanaEsokCtrl.text.trim(),
-    };
   }
 
   Future<void> _simpanDraft() async {
     setState(() => _submitting = true);
     final messenger = ScaffoldMessenger.of(context);
-    File? fotoBertag;
+    final List<File> fotosBertag = [];
     try {
-      if (_lokasiGpsTidakSesuai) {
-        throw StateError(
-          'Lokasi kerja dan koordinat foto tidak sesuai. '
-          'Ambil ulang foto dokumentasi di lokasi kerja yang dipilih.',
-        );
-      }
       final tanggal = DateFormat('yyyy-MM-dd').format(_tanggal);
       final data = _dataLaporan(tanggal);
       if (_jenisKegiatanId == null) {
@@ -630,7 +718,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
       final judul =
           data['judul']!.isEmpty ? 'Draft tanpa judul' : data['judul']!;
       final id = _draftId;
-      fotoBertag = await _siapkanFotoBertag();
+      fotosBertag.addAll(await _siapkanSemuaFotoBertag());
 
       if (id == null) {
         await ApiService.submitLaporan(
@@ -645,7 +733,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
           uraianPekerjaan: data['uraian_pekerjaan'],
           hasil: data['hasil'],
           rencanaEsok: data['rencana_esok'],
-          lampiran: fotoBertag ?? _dokumentasiFile,
+          lampiranList: fotosBertag.isNotEmpty ? fotosBertag : null,
           status: 'Draft',
         );
       } else {
@@ -662,7 +750,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
           uraianPekerjaan: data['uraian_pekerjaan'],
           hasil: data['hasil'],
           rencanaEsok: data['rencana_esok'],
-          lampiran: fotoBertag ?? _dokumentasiFile,
+          lampiranList: fotosBertag.isNotEmpty ? fotosBertag : null,
         );
       }
 
@@ -685,18 +773,11 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
         );
       }
     } finally {
-      await _hapusFotoBertagSementara(fotoBertag);
+      await _hapusFotoBertagSementara(fotosBertag);
     }
   }
 
-  Future<void> _hapusFotoBertagSementara(File? foto) async {
-    if (foto == null || foto.path == _dokumentasiFile?.path) return;
-    try {
-      if (await foto.exists()) await foto.delete();
-    } on FileSystemException catch (e) {
-      debugPrint('Gagal menghapus file foto sementara: $e');
-    }
-  }
+  // ────────────────────────────────────────────── BUILD ──
 
   @override
   Widget build(BuildContext context) {
@@ -705,7 +786,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // 1. TOP BAR: Tombol Back Bulat + Judul "Buat Laporan Baru"
+            // TOP BAR
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: Row(
@@ -745,550 +826,292 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
             ),
             const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
 
-            // 2. KONTEN FORMULIR
+            // FORM
             Expanded(
               child: Form(
                 key: _formKey,
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                   children: [
-                    // KARTU 1: METADATA & OPERASIONAL
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                            color: const Color(0xFFE5E7EB), width: 1.2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.02),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'INFORMASI OPERASIONAL',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF6B7280),
-                              letterSpacing: 0.6,
+                    // ── KARTU 1: INFORMASI OPERASIONAL ──
+                    _buildCard(
+                      children: [
+                        _sectionLabel('INFORMASI OPERASIONAL'),
+                        const SizedBox(height: 14),
+
+                        // Tanggal
+                        _fieldLabel('Tanggal Kegiatan'),
+                        const SizedBox(height: 6),
+                        InkWell(
+                          onTap: _pilihTanggal,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF9FAFB),
+                              borderRadius: BorderRadius.circular(12),
+                              border:
+                                  Border.all(color: const Color(0xFFD1D5DB)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.calendar_month_rounded,
+                                    color: AppConstants.primaryColor, size: 20),
+                                const SizedBox(width: 10),
+                                Text(
+                                  _formatTanggalIndo(_tanggal, withDay: true),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
+                                const Spacer(),
+                                const Icon(Icons.keyboard_arrow_down_rounded,
+                                    color: Color(0xFF9CA3AF)),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 14),
+                        ),
+                        const SizedBox(height: 16),
 
-                          // Tanggal Kegiatan
-                          const Text(
-                            'Tanggal Kegiatan',
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF374151)),
-                          ),
-                          const SizedBox(height: 6),
-                          InkWell(
-                            onTap: _pilihTanggal,
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF9FAFB),
-                                borderRadius: BorderRadius.circular(12),
-                                border:
-                                    Border.all(color: const Color(0xFFD1D5DB)),
+                        // Judul
+                        _fieldLabel('Judul Laporan *'),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _judulCtrl,
+                          decoration: _inputDeco(
+                              'Contoh: Penyemprotan pestisida Blok A — 8 Ha'),
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Judul laporan wajib diisi'
+                              : null,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Jenis Kegiatan
+                        _fieldLabel('Jenis Kegiatan'),
+                        const SizedBox(height: 8),
+                        if (_jenisKegiatanLoading)
+                          const LinearProgressIndicator()
+                        else if (_jenisKegiatanError != null)
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text('Gagal memuat jenis kegiatan.',
+                                    style: TextStyle(color: Colors.red)),
                               ),
-                              child: Row(
+                              TextButton(
+                                onPressed: _muatJenisKegiatan,
+                                child: const Text('Coba lagi'),
+                              ),
+                            ],
+                          )
+                        else
+                          DropdownButtonFormField<int>(
+                            initialValue: _jenisKegiatanId,
+                            isExpanded: true,
+                            decoration: _inputDeco(
+                              _jenisKegiatanList.isEmpty
+                                  ? 'Belum ada jenis kegiatan aktif'
+                                  : 'Pilih jenis kegiatan',
+                            ),
+                            items: _jenisKegiatanList.map((item) {
+                              final id = int.tryParse(item['id'].toString());
+                              if (id == null) return null;
+                              return DropdownMenuItem<int>(
+                                value: id,
+                                child: Text(item['nama'].toString()),
+                              );
+                            }).whereType<DropdownMenuItem<int>>().toList(),
+                            validator: (value) =>
+                                value == null ? 'Pilih jenis kegiatan' : null,
+                            onChanged: _jenisKegiatanList.isEmpty
+                                ? null
+                                : (value) =>
+                                    setState(() => _jenisKegiatanId = value),
+                          ),
+                        const SizedBox(height: 16),
+
+                        // Lokasi / Area — DROPDOWN
+                        _fieldLabel('Lokasi / Area Kerja'),
+                        const SizedBox(height: 8),
+                        if (_lokasiLoading)
+                          const LinearProgressIndicator()
+                        else if (_lokasiError != null)
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text('Gagal memuat lokasi kerja.',
+                                    style: TextStyle(color: Colors.red)),
+                              ),
+                              TextButton(
+                                onPressed: _muatLokasi,
+                                child: const Text('Coba lagi'),
+                              ),
+                            ],
+                          )
+                        else
+                          DropdownButtonFormField<int>(
+                            initialValue: _lokasiId,
+                            isExpanded: true,
+                            decoration: _inputDeco(
+                              _lokasiList.isEmpty
+                                  ? 'Belum ada lokasi terdaftar'
+                                  : 'Pilih lokasi kerja',
+                            ),
+                            items: _lokasiList.map((item) {
+                              final id = int.tryParse(item['id'].toString());
+                              if (id == null) return null;
+                              return DropdownMenuItem<int>(
+                                value: id,
+                                child: Text(item['nama'].toString()),
+                              );
+                            }).whereType<DropdownMenuItem<int>>().toList(),
+                            onChanged: _lokasiList.isEmpty
+                                ? null
+                                : (value) {
+                                    setState(() => _lokasiId = value);
+                                  },
+                          ),
+                        const SizedBox(height: 16),
+
+                        // Unit Drone & Luas Area (2 kolom)
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 6,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Icon(Icons.calendar_month_rounded,
-                                      color: AppConstants.primaryColor,
-                                      size: 20),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    _formatTanggalIndo(_tanggal, withDay: true),
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF111827),
+                                  _fieldLabel('Unit Drone'),
+                                  const SizedBox(height: 6),
+                                  TextFormField(
+                                    controller: _unitDroneCtrl,
+                                    decoration: _inputDeco(
+                                        'DA-001 (DJI Agras T40)',
+                                        compact: true),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 4,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _fieldLabel('Luas Area'),
+                                  const SizedBox(height: 6),
+                                  TextFormField(
+                                    controller: _luasAreaCtrl,
+                                    decoration:
+                                        _inputDeco('8 Ha', compact: true),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // ── DOKUMENTASI KEGIATAN ──
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                                color: const Color(0xFFE5E7EB), width: 1.2),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text(
+                                    'DOKUMENTASI KEGIATAN LAPANGAN',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF6B7280),
+                                      letterSpacing: 0.6,
                                     ),
                                   ),
                                   const Spacer(),
-                                  const Icon(Icons.keyboard_arrow_down_rounded,
-                                      color: Color(0xFF9CA3AF)),
+                                  Text(
+                                    '${_dokumentasiFiles.length + _draftDokumentasiPaths.length}/$_maxFoto',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF9CA3AF),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
                                 ],
                               ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Judul Laporan
-                          const Text(
-                            'Judul Laporan *',
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF374151)),
-                          ),
-                          const SizedBox(height: 6),
-                          TextFormField(
-                            controller: _judulCtrl,
-                            decoration: InputDecoration(
-                              hintText:
-                                  'Contoh: Penyemprotan pestisida Blok A — 8 Ha',
-                              hintStyle: const TextStyle(
-                                  color: Color(0xFF9CA3AF), fontSize: 13.5),
-                              filled: true,
-                              fillColor: const Color(0xFFF9FAFB),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    const BorderSide(color: Color(0xFFD1D5DB)),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Tambahkan foto dokumentasi kegiatan lapangan (opsional, maks. 10 foto).',
+                                style: TextStyle(
+                                    fontSize: 12.5, color: Color(0xFF9CA3AF)),
                               ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    const BorderSide(color: Color(0xFFD1D5DB)),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                    color: AppConstants.primaryColor,
-                                    width: 1.5),
-                              ),
-                            ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Judul laporan wajib diisi'
-                                : null,
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Jenis Kegiatan
-                          const Text(
-                            'Jenis Kegiatan',
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF374151)),
-                          ),
-                          const SizedBox(height: 8),
-                          if (_jenisKegiatanLoading)
-                            const LinearProgressIndicator()
-                          else if (_jenisKegiatanError != null)
-                            Row(
-                              children: [
-                                const Expanded(
-                                  child: Text(
-                                    'Gagal memuat jenis kegiatan.',
-                                    style: TextStyle(color: Colors.red),
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: _muatJenisKegiatan,
-                                  child: const Text('Coba lagi'),
-                                ),
-                              ],
-                            )
-                          else
-                            DropdownButtonFormField<int>(
-                              initialValue: _jenisKegiatanId,
-                              isExpanded: true,
-                              decoration: InputDecoration(
-                                hintText: _jenisKegiatanList.isEmpty
-                                    ? 'Belum ada jenis kegiatan aktif'
-                                    : 'Pilih jenis kegiatan',
-                                filled: true,
-                                fillColor: const Color(0xFFF9FAFB),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              items: _jenisKegiatanList.map((item) {
-                                final id = int.tryParse(item['id'].toString());
-                                if (id == null) return null;
-                                return DropdownMenuItem<int>(
-                                  value: id,
-                                  child: Text(item['nama'].toString()),
-                                );
-                              }).whereType<DropdownMenuItem<int>>().toList(),
-                              validator: (value) => value == null
-                                  ? 'Pilih jenis kegiatan'
-                                  : null,
-                              onChanged: _jenisKegiatanList.isEmpty
-                                  ? null
-                                  : (value) =>
-                                      setState(() => _jenisKegiatanId = value),
-                            ),
-                          const SizedBox(height: 16),
-
-                          // Lokasi / Area
-                          const Text(
-                            'Lokasi / Area',
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF374151)),
-                          ),
-                          const SizedBox(height: 6),
-                          TextFormField(
-                            controller: _lokasiCtrl,
-                            onChanged: _dokumentasiFile == null
-                                ? null
-                                : (_) => setState(() {
-                                      _jarakLokasiGps = null;
-                                    }),
-                            decoration: InputDecoration(
-                              hintText: 'Contoh: Sawah Blok A — Karawang',
-                              filled: true,
-                              fillColor: const Color(0xFFF9FAFB),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    const BorderSide(color: Color(0xFFD1D5DB)),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Unit Drone & Luas Area (2 Kolom)
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 6,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Unit Drone',
-                                      style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF374151)),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    TextFormField(
-                                      controller: _unitDroneCtrl,
-                                      decoration: InputDecoration(
-                                        hintText: 'DA-001 (DJI Agras T40)',
-                                        filled: true,
-                                        fillColor: const Color(0xFFF9FAFB),
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                                horizontal: 12, vertical: 12),
-                                        border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          borderSide: const BorderSide(
-                                              color: Color(0xFFD1D5DB)),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                flex: 4,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Luas Area',
-                                      style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF374151)),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    TextFormField(
-                                      controller: _luasAreaCtrl,
-                                      decoration: InputDecoration(
-                                        hintText: '8 Ha',
-                                        filled: true,
-                                        fillColor: const Color(0xFFF9FAFB),
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                                horizontal: 12, vertical: 12),
-                                        border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          borderSide: const BorderSide(
-                                              color: Color(0xFFD1D5DB)),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                              const SizedBox(height: 12),
+                              _buildFotoGrid(),
                             ],
                           ),
-                          const SizedBox(height: 16),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
-                                color: const Color(0xFFE5E7EB),
-                                width: 1.2,
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'DOKUMENTASI KEGIATAN LAPANGAN',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF6B7280),
-                                    letterSpacing: 0.6,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                const Text(
-                                  'Tambahkan foto kegiatan sebagai dokumentasi (opsional, maksimal 5 MB).',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                if (_dokumentasiFile != null ||
-                                    (_dokumentasiPath?.isNotEmpty ??
-                                        false)) ...[
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: _dokumentasiFile != null
-                                        ? _buildFotoDenganTag()
-                                        : Image.network(
-                                            AppConstants.getImageUrl(
-                                                _dokumentasiPath)!,
-                                            height: 190,
-                                            width: double.infinity,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) =>
-                                                Container(
-                                              height: 120,
-                                              alignment: Alignment.center,
-                                              color: const Color(0xFFF3F4F6),
-                                              child: const Text(
-                                                'Foto dokumentasi tidak dapat dimuat',
-                                              ),
-                                            ),
-                                          ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                ],
-                                if (_dokumentasiFile != null &&
-                                    _jarakLokasiGps != null) ...[
-                                  Text(
-                                    'GPS cocok dengan lokasi laporan '
-                                    '(jarak ${_jarakLokasiGps!.toStringAsFixed(0)} m).',
-                                    style: const TextStyle(
-                                      color: Color(0xFF15803D),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                ],
-                                if (_lokasiGpsTidakSesuai) ...[
-                                  const Text(
-                                    'Lokasi kerja dan koordinat foto tidak sesuai. '
-                                    'Ambil ulang foto setelah memastikan lokasi kerja benar.',
-                                    style: TextStyle(
-                                      color: Color(0xFFDC2626),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                ],
-                                OutlinedButton.icon(
-                                  onPressed:
-                                      _submitting ? null : _pilihDokumentasi,
-                                  icon: const Icon(Icons.add_a_photo_outlined),
-                                  label: Text(
-                                    _dokumentasiFile != null ||
-                                            (_dokumentasiPath?.isNotEmpty ??
-                                                false)
-                                        ? 'Ganti foto dokumentasi'
-                                        : 'Tambah foto dokumentasi',
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
 
-                    // KARTU 2: URAIAN PEKERJAAN
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                            color: const Color(0xFFE5E7EB), width: 1.2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.02),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                    // ── KARTU 2: URAIAN PEKERJAAN ──
+                    _buildCard(
+                      children: [
+                        _sectionLabel('URAIAN PEKERJAAN *'),
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: _uraianCtrl,
+                          maxLines: 5,
+                          decoration: _inputDeco(
+                            'Tuliskan deskripsi lengkap pekerjaan lapangan, jam operasional, dosis semprot / perlakuan, kondisi cuaca, dan SOP...',
                           ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'URAIAN PEKERJAAN *',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF6B7280),
-                              letterSpacing: 0.6,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: _uraianCtrl,
-                            maxLines: 5,
-                            decoration: InputDecoration(
-                              hintText:
-                                  'Tuliskan deskripsi lengkap pekerjaan lapangan, jam operasional, dosis semprot / perlakuan, kondisi cuaca, dan SOP...',
-                              hintStyle: const TextStyle(
-                                  color: Color(0xFF9CA3AF),
-                                  fontSize: 13.5,
-                                  height: 1.4),
-                              filled: true,
-                              fillColor: const Color(0xFFF9FAFB),
-                              contentPadding: const EdgeInsets.all(14),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    const BorderSide(color: Color(0xFFD1D5DB)),
-                              ),
-                            ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Uraian pekerjaan wajib diisi'
-                                : null,
-                          ),
-                        ],
-                      ),
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Uraian pekerjaan wajib diisi'
+                              : null,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
 
-                    // KARTU 3: HASIL & RENCANA ESOK
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                            color: const Color(0xFFE5E7EB), width: 1.2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.02),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'HASIL & RENCANA ESOK',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF6B7280),
-                              letterSpacing: 0.6,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-
-                          // Hasil
-                          const Text(
-                            'Hasil Pekerjaan',
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF374151)),
-                          ),
-                          const SizedBox(height: 6),
-                          TextFormField(
-                            controller: _hasilCtrl,
-                            decoration: InputDecoration(
-                              hintText:
-                                  'Penyemprotan 100% selesai. Tidak ada kendala signifikan.',
-                              hintStyle: const TextStyle(
-                                  color: Color(0xFF9CA3AF), fontSize: 13),
-                              filled: true,
-                              fillColor: const Color(0xFFF9FAFB),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    const BorderSide(color: Color(0xFFD1D5DB)),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-
-                          // Rencana Esok
-                          const Text(
-                            'Rencana Esok',
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF374151)),
-                          ),
-                          const SizedBox(height: 6),
-                          TextFormField(
-                            controller: _rencanaEsokCtrl,
-                            decoration: InputDecoration(
-                              hintText:
-                                  'Penyemprotan Blok B — 5 Ha dengan drone DA-002.',
-                              hintStyle: const TextStyle(
-                                  color: Color(0xFF9CA3AF), fontSize: 13),
-                              filled: true,
-                              fillColor: const Color(0xFFF9FAFB),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    const BorderSide(color: Color(0xFFD1D5DB)),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                    // ── KARTU 3: HASIL & RENCANA ESOK ──
+                    _buildCard(
+                      children: [
+                        _sectionLabel('HASIL & RENCANA ESOK'),
+                        const SizedBox(height: 14),
+                        _fieldLabel('Hasil Pekerjaan'),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _hasilCtrl,
+                          decoration: _inputDeco(
+                              'Penyemprotan 100% selesai. Tidak ada kendala signifikan.'),
+                        ),
+                        const SizedBox(height: 14),
+                        _fieldLabel('Rencana Esok'),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _rencanaEsokCtrl,
+                          decoration: _inputDeco(
+                              'Penyemprotan Blok B — 5 Ha dengan drone DA-002.'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ),
 
-            // 3. BOTTOM BUTTONS: save draft or send report
+            // BOTTOM BUTTONS
             Container(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
               decoration: const BoxDecoration(
@@ -1360,4 +1183,238 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
       ),
     );
   }
+
+  // ────────────────────── FOTO GRID ──────────────────────
+
+  Widget _buildFotoGrid() {
+    final totalDraftPaths = _draftDokumentasiPaths.length;
+    final totalNewFiles = _dokumentasiFiles.length;
+    final total = totalDraftPaths + totalNewFiles;
+    final canAdd = total < _maxFoto;
+
+    // Build items: draft paths first, then new files, then add button
+    final List<Widget> items = [];
+
+    // Draft paths (from server)
+    for (var i = 0; i < totalDraftPaths; i++) {
+      items.add(_buildDraftPhotoTile(i, _draftDokumentasiPaths[i]));
+    }
+
+    // Newly picked files
+    for (var i = 0; i < totalNewFiles; i++) {
+      items.add(_buildNewPhotoTile(i, _dokumentasiFiles[i]));
+    }
+
+    // Add button
+    if (canAdd) {
+      items.add(_buildAddPhotoButton());
+    }
+
+    if (items.isEmpty) {
+      return _buildAddPhotoButton();
+    }
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: items,
+    );
+  }
+
+  Widget _buildDraftPhotoTile(int index, String path) {
+    final url = AppConstants.getImageUrl(path);
+    return _photoTileWrapper(
+      onRemove: () => _hapusDraftFoto(index),
+      child: url != null
+          ? Image.network(
+              url,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (_, __, ___) => const Center(
+                child: Icon(Icons.broken_image_outlined,
+                    size: 28, color: Color(0xFF9CA3AF)),
+              ),
+            )
+          : const Center(
+              child: Icon(Icons.broken_image_outlined,
+                  size: 28, color: Color(0xFF9CA3AF)),
+            ),
+    );
+  }
+
+  Widget _buildNewPhotoTile(int index, File file) {
+    final posisi = index < _posisiPerFoto.length ? _posisiPerFoto[index] : null;
+    return _photoTileWrapper(
+      onRemove: () => _hapusFoto(index),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.file(file, fit: BoxFit.cover),
+          if (posisi != null)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                color: Colors.black54,
+                child: const Text(
+                  'GPS ✓',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _photoTileWrapper({
+    required Widget child,
+    required VoidCallback onRemove,
+  }) {
+    return SizedBox(
+      width: 95,
+      height: 95,
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 95,
+              height: 95,
+              child: child,
+            ),
+          ),
+          Positioned(
+            top: 3,
+            right: 3,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, size: 13, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddPhotoButton() {
+    return GestureDetector(
+      onTap: _submitting ? null : _pilihDokumentasi,
+      child: Container(
+        width: 95,
+        height: 95,
+        decoration: BoxDecoration(
+          color: const Color(0xFFEEF2FF),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: AppConstants.primaryColor.withValues(alpha: 0.4),
+            width: 1.5,
+          ),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_a_photo_outlined,
+                size: 26, color: AppConstants.primaryColor),
+            SizedBox(height: 4),
+            Text(
+              'Tambah\nFoto',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppConstants.primaryColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────── HELPERS ───────────────────
+
+  Widget _buildCard({required List<Widget> children}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String text) => Text(
+        text,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF6B7280),
+          letterSpacing: 0.6,
+        ),
+      );
+
+  Widget _fieldLabel(String text) => Text(
+        text,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF374151),
+        ),
+      );
+
+  InputDecoration _inputDeco(String hint, {bool compact = false}) =>
+      InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13.5),
+        filled: true,
+        fillColor: const Color(0xFFF9FAFB),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: compact ? 12 : 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide:
+              const BorderSide(color: AppConstants.primaryColor, width: 1.5),
+        ),
+      );
 }

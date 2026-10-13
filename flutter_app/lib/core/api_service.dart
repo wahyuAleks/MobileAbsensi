@@ -341,6 +341,7 @@ class ApiService {
     String? hasil,
     String? rencanaEsok,
     File? lampiran,
+    List<File>? lampiranList,
     String status = 'Terkirim',
   }) async {
     return _requestLaporan(
@@ -362,6 +363,7 @@ class ApiService {
         'status': status,
       },
       lampiran: lampiran,
+      lampiranList: lampiranList,
     );
   }
 
@@ -379,6 +381,7 @@ class ApiService {
     String? hasil,
     String? rencanaEsok,
     File? lampiran,
+    List<File>? lampiranList,
   }) async {
     return _requestLaporan(
       'PUT',
@@ -398,6 +401,7 @@ class ApiService {
         if (rencanaEsok != null) 'rencana_esok': rencanaEsok,
       },
       lampiran: lampiran,
+      lampiranList: lampiranList,
     );
   }
 
@@ -415,6 +419,7 @@ class ApiService {
     String? hasil,
     String? rencanaEsok,
     File? lampiran,
+    List<File>? lampiranList,
   }) async {
     return _requestLaporan(
       'PUT',
@@ -434,6 +439,7 @@ class ApiService {
         if (rencanaEsok != null) 'rencana_esok': rencanaEsok,
       },
       lampiran: lampiran,
+      lampiranList: lampiranList,
     );
   }
 
@@ -475,6 +481,7 @@ class ApiService {
     String path,
     Map<String, String> fields, {
     File? lampiran,
+    List<File>? lampiranList,
   }) async {
     final request = http.MultipartRequest(
       method,
@@ -482,12 +489,18 @@ class ApiService {
     );
     request.headers.addAll(await _headers(json: false));
     request.fields.addAll(fields);
-    if (lampiran != null) {
+    if (lampiranList != null && lampiranList.isNotEmpty) {
+      for (final f in lampiranList) {
+        request.files.add(
+          await http.MultipartFile.fromPath('lampiran', f.path),
+        );
+      }
+    } else if (lampiran != null) {
       request.files.add(
         await http.MultipartFile.fromPath('lampiran', lampiran.path),
       );
     }
-    final streamed = await request.send().timeout(const Duration(seconds: 25));
+    final streamed = await request.send().timeout(const Duration(seconds: 35));
     return _handle(await http.Response.fromStream(streamed));
   }
 

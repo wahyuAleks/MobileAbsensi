@@ -162,6 +162,40 @@ class ApiService {
     return _handleList(res);
   }
 
+  static Future<Map<String, dynamic>> editLaporanAdmin(
+    int id, {
+    required String tanggal,
+    required String judul,
+    required String isiLaporan,
+    String? jenisKegiatan,
+    String? lokasi,
+    String? unitDrone,
+    String? luasArea,
+    String? uraianPekerjaan,
+    String? hasil,
+    String? rencanaEsok,
+  }) async {
+    final res = await http
+        .put(
+          Uri.parse('${AppConstants.baseUrl}/laporan/$id/admin-edit'),
+          headers: await _headers(),
+          body: jsonEncode({
+            'tanggal': tanggal,
+            'judul': judul,
+            'isi_laporan': isiLaporan,
+            if (jenisKegiatan != null) 'jenis_kegiatan': jenisKegiatan,
+            if (lokasi != null) 'lokasi': lokasi,
+            if (unitDrone != null) 'unit_drone': unitDrone,
+            if (luasArea != null) 'luas_area': luasArea,
+            if (uraianPekerjaan != null) 'uraian_pekerjaan': uraianPekerjaan,
+            if (hasil != null) 'hasil': hasil,
+            if (rencanaEsok != null) 'rencana_esok': rencanaEsok,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
+    return _handle(res);
+  }
+
   static Future<List<dynamic>> jenisKegiatan() async {
     final res = await http
         .get(
@@ -373,6 +407,31 @@ class ApiService {
             .put(uri, headers: await _headers(), body: body)
             .timeout(const Duration(seconds: 15));
     return _handle(res);
+  }
+
+  static Future<Map<String, dynamic>> simpanJadwalKerjaUntukBanyakKaryawan({
+    required List<int> userIds,
+    required int locationId,
+    required String tanggal,
+    required String jamMulai,
+    required String jamSelesai,
+  }) async {
+    final res = await http
+        .post(
+          Uri.parse('${AppConstants.baseUrl}/jadwal-kerja/bulk'),
+          headers: await _headers(),
+          body: jsonEncode({
+            'user_ids': userIds,
+            'location_id': locationId,
+            'tanggal': tanggal,
+            'jam_mulai': jamMulai,
+            'jam_selesai': jamSelesai,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
+    final body = _handle(res);
+    if (body is Map<String, dynamic>) return body;
+    throw ApiException('Response penyimpanan jadwal tidak valid');
   }
 
   static Future<void> hapusJadwalKerja(int id) async {

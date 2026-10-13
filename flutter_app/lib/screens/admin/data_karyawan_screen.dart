@@ -135,17 +135,11 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
       await ApiService.hapusKaryawan(id);
       _muat();
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     }
-  }
-
-  void _bukaFormTambah() {
-    showDialog(
-      context: context,
-      builder: (context) => _FormKaryawanDialog(onSukses: _muat),
-    );
   }
 
   void _bukaFormEdit(Map<String, dynamic> karyawan) {
@@ -179,15 +173,6 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
             ),
             const SizedBox(height: 16),
             const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.person_add_outlined,
-                  color: Color(0xFF10B981)),
-              title: const Text('Tambah Karyawan Baru'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _bukaFormTambah();
-              },
-            ),
             ListTile(
               leading:
                   const Icon(Icons.edit_outlined, color: Color(0xFF4F5BA8)),
@@ -518,11 +503,12 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
                                           color: Color(0xFF6B7280),
                                           fontSize: 13),
                                     ),
-                                    const SizedBox(height: 12),
-                                    TextButton.icon(
-                                      onPressed: _bukaFormTambah,
-                                      icon: const Icon(Icons.add, size: 18),
-                                      label: const Text('Tambah Karyawan'),
+                                    const SizedBox(height: 6),
+                                    const Text(
+                                      'Penambahan akun baru dilakukan melalui Admin Web.',
+                                      style: TextStyle(
+                                          color: Color(0xFF9CA3AF),
+                                          fontSize: 11.5),
                                     ),
                                   ],
                                 ),
