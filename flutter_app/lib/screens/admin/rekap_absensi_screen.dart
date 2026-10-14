@@ -28,85 +28,35 @@ class RekapAbsensiScreen extends StatefulWidget {
 }
 
 class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
-  final List<String> _months = const [
-    'Januari 2026',
-    'Februari 2026',
-    'Maret 2026',
-    'April 2026',
-    'Mei 2026',
-    'Juni 2026',
-    'Juli 2026',
-    'Agustus 2026',
-    'September 2026',
-    'Oktober 2026',
-    'November 2026',
-    'Desember 2026',
+  static const _namaBulan = [
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
   ];
-  String _selectedMonth = 'Agustus 2026';
-  String _searchFilter = '';
-  late Future<List<dynamic>> _future;
 
-  // Data default persis sesuai mockup gambar yang dikirimkan user
-  final List<Map<String, dynamic>> _mockRekap = [
-    {
-      'id': 1,
-      'nama': 'Jungkook',
-      'initials': 'JK',
-      'avatarColor': const Color(0xFF2F6B64),
-      'hadir': 16,
-      'terlambat': 2,
-      'tidak_hadir': 0,
-    },
-    {
-      'id': 2,
-      'nama': 'Dhila\nCimoy',
-      'initials': 'DC',
-      'avatarColor': const Color(0xFF385C83),
-      'hadir': 14,
-      'terlambat': 2,
-      'tidak_hadir': 0,
-    },
-    {
-      'id': 3,
-      'nama': 'Lino\nBoncel',
-      'initials': 'LB',
-      'avatarColor': const Color(0xFF2F6B64),
-      'hadir': 18,
-      'terlambat': 2,
-      'tidak_hadir': 0,
-    },
-    {
-      'id': 4,
-      'nama': 'Alek\nSiregar',
-      'initials': 'AS',
-      'avatarColor': const Color(0xFF2F6B64),
-      'hadir': 12,
-      'terlambat': 2,
-      'tidak_hadir': 2,
-    },
-    {
-      'id': 5,
-      'nama': 'Apri\nUcup',
-      'initials': 'AU',
-      'avatarColor': const Color(0xFF2F6B64),
-      'hadir': 17,
-      'terlambat': 2,
-      'tidak_hadir': 1,
-    },
-    {
-      'id': 6,
-      'nama': 'Lilit\nRansink',
-      'initials': 'AU', // Di mockup gambar inisialnya adalah AU
-      'avatarColor': const Color(0xFF385C83),
-      'hadir': 15,
-      'terlambat': 2,
-      'tidak_hadir': 0,
-    },
-  ];
+  late final List<String> _months;
+  late String _selectedMonth;
+  String _searchFilter = '';
+  late Future<_RekapAbsensiHasil> _future;
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _months = List.generate(
+      12,
+      (i) => '${_namaBulan[i]} ${now.year}',
+    );
+    _selectedMonth = '${_namaBulan[now.month - 1]} ${now.year}';
     _muat();
   }
 
@@ -131,14 +81,94 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
     if (parts.length >= 2) {
       return int.tryParse(parts[1]);
     }
-    return 2026;
+    return DateTime.now().year;
+  }
+
+  Map<String, dynamic> _barisKaryawan(int uid, String rawNama) {
+    final parts = rawNama.trim().split(RegExp(r'\s+'));
+    final initials = parts.isEmpty || parts.first.isEmpty
+        ? 'K'
+        : (parts.length >= 2 && parts[1].isNotEmpty
+            ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
+            : parts[0][0].toUpperCase());
+    final formattedNama = parts.length >= 2
+        ? '${parts[0]}\n${parts.sublist(1).join(' ')}'
+        : rawNama;
+    return {
+      'id': uid,
+      'nama': formattedNama,
+      'initials': initials,
+      'avatarColor': uid.isEven
+          ? const Color(0xFF385C83)
+          : const Color(0xFF2F6B64),
+      'hadir': 0,
+      'terlambat': 0,
+      'tidak_hadir': 0,
+    };
+  }
+
+  Future<_RekapAbsensiHasil> _ambilRekap() async {
+    final bulan = _extractMonth(_selectedMonth);
+    final tahun = _extractYear(_selectedMonth);
+    final results = await Future.wait([
+      ApiService.rekapAbsensiAdmin(bulan: bulan, tahun: tahun),
+      ApiService.daftarKaryawan(),
+    ]);
+    final absensi = results[0];
+    final karyawan = results[1];
+    final grouped = <int, Map<String, dynamic>>{};
+
+    for (final k in karyawan) {
+      final uid = int.tryParse('${k['id'] ?? ''}') ?? 0;
+      if (uid < 1) continue;
+      grouped[uid] = _barisKaryawan(
+        uid,
+        (k['nama'] ?? 'Karyawan').toString(),
+      );
+    }
+
+    for (final r in absensi) {
+      final user = r['User'] is Map ? r['User'] as Map : const {};
+      final uid = int.tryParse('${user['id'] ?? r['user_id'] ?? 0}') ?? 0;
+      if (uid < 1) continue;
+      final rawNama = (user['nama'] ?? 'Karyawan').toString();
+      grouped.putIfAbsent(uid, () => _barisKaryawan(uid, rawNama));
+
+      final status = (r['status'] ?? '').toString().toLowerCase();
+      if (status.contains('telat') || status.contains('terlambat')) {
+        grouped[uid]!['terlambat'] = (grouped[uid]!['terlambat'] as int) + 1;
+        grouped[uid]!['hadir'] = (grouped[uid]!['hadir'] as int) + 1;
+      } else if (status.contains('hadir') || status.contains('tepat')) {
+        grouped[uid]!['hadir'] = (grouped[uid]!['hadir'] as int) + 1;
+      } else {
+        grouped[uid]!['tidak_hadir'] =
+            (grouped[uid]!['tidak_hadir'] as int) + 1;
+      }
+    }
+
+    final items = grouped.values.toList()
+      ..sort((a, b) => (a['nama'] as String)
+          .replaceAll('\n', ' ')
+          .compareTo((b['nama'] as String).replaceAll('\n', ' ')));
+
+    final totalHadir =
+        items.fold<int>(0, (sum, item) => sum + (item['hadir'] as int));
+    final totalTidakHadir =
+        items.fold<int>(0, (sum, item) => sum + (item['tidak_hadir'] as int));
+    final totalHari = totalHadir + totalTidakHadir;
+    final rataPersen =
+        totalHari == 0 ? 0 : ((totalHadir / totalHari) * 100).round();
+
+    return _RekapAbsensiHasil(
+      items: items,
+      rataKehadiranPersen: rataPersen,
+      totalTidakHadir: totalTidakHadir,
+    );
   }
 
   void _muat() {
     setState(() {
-      final bulan = _extractMonth(_selectedMonth);
-      final tahun = _extractYear(_selectedMonth);
-      _future = ApiService.rekapAbsensiAdmin(bulan: bulan, tahun: tahun);
+      _future = _ambilRekap();
     });
   }
 
@@ -392,194 +422,166 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
                 ),
                 const SizedBox(height: 18),
 
-                // 3. DUA KARTU METRIK HORIZONTAL PERSIS GAMBAR
-                // Kartu 1: Rata-rata Kehadiran (87% - Centang Hijau)
-                Container(
-                  height: 80,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: const Color(0xFFD1D5DB),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Rata-rata Kehadiran',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            '87%',
-                            style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF111827),
-                              height: 1.0,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFA3D9A5),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.check_circle_rounded,
-                            color: Color(0xFF236A28),
-                            size: 22,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Kartu 2: Rata-rata Kehadiran (4 - Silang Merah)
-                Container(
-                  height: 80,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: const Color(0xFFD1D5DB),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Rata-rata Kehadiran',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            '4',
-                            style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF111827),
-                              height: 1.0,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFECDD3),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.close_rounded,
-                            color: Color(0xFFE11D48),
-                            size: 24,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                // 4. TABEL REKAP ABSENSI BULANAN PERSIS GAMBAR
-                FutureBuilder<List<dynamic>>(
+                FutureBuilder<_RekapAbsensiHasil>(
                   future: _future,
                   builder: (context, snap) {
-                    List<Map<String, dynamic>> items;
-
-                    if (snap.hasData && snap.data!.isNotEmpty) {
-                      // Jika ada data riil, kelompokkan per karyawan
-                      final Map<int, Map<String, dynamic>> grouped = {};
-                      for (var r in snap.data!) {
-                        final user = r['User'] ?? {};
-                        final uid = user['id'] ?? r['user_id'] ?? 1;
-                        final rawNama = (user['nama'] ?? 'Karyawan').toString();
-                        final status =
-                            (r['status'] ?? '').toString().toLowerCase();
-
-                        if (!grouped.containsKey(uid)) {
-                          final parts = rawNama.trim().split(RegExp(r'\s+'));
-                          final initials = parts.length >= 2
-                              ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
-                              : rawNama[0].toUpperCase();
-                          final formattedNama = parts.length >= 2
-                              ? '${parts[0]}\n${parts.sublist(1).join(' ')}'
-                              : rawNama;
-
-                          grouped[uid] = {
-                            'id': uid,
-                            'nama': formattedNama,
-                            'initials': initials,
-                            'avatarColor': uid.isEven
-                                ? const Color(0xFF385C83)
-                                : const Color(0xFF2F6B64),
-                            'hadir': 0,
-                            'terlambat': 0,
-                            'tidak_hadir': 0,
-                          };
-                        }
-
-                        if (status.contains('terlambat') || status == 'telat') {
-                          grouped[uid]!['terlambat'] =
-                              (grouped[uid]!['terlambat'] as int) + 1;
-                          grouped[uid]!['hadir'] =
-                              (grouped[uid]!['hadir'] as int) + 1;
-                        } else if (status.contains('hadir') ||
-                            status.contains('tepat')) {
-                          grouped[uid]!['hadir'] =
-                              (grouped[uid]!['hadir'] as int) + 1;
-                        } else {
-                          grouped[uid]!['tidak_hadir'] =
-                              (grouped[uid]!['tidak_hadir'] as int) + 1;
-                        }
-                      }
-                      items = grouped.values.toList();
-                    } else {
-                      items = _mockRekap;
+                    if (snap.connectionState == ConnectionState.waiting) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 48),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
                     }
 
-                    // Filter nama jika user mengetik filter
+                    if (snap.hasError) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 36),
+                        child: Center(
+                          child: Text(
+                            'Gagal memuat rekap absensi.\nTarik ke bawah untuk coba lagi.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.red.shade700,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    final hasil = snap.data ??
+                        const _RekapAbsensiHasil(
+                          items: [],
+                          rataKehadiranPersen: 0,
+                          totalTidakHadir: 0,
+                        );
+                    final items = hasil.items;
                     final filtered = items.where((k) {
                       if (_searchFilter.isEmpty) return true;
                       final n = (k['nama'] ?? '').toString().toLowerCase();
                       return n.contains(_searchFilter);
                     }).toList();
 
-                    return Container(
+                    return Column(
+                      children: [
+                        Container(
+                          height: 80,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: const Color(0xFFD1D5DB),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text(
+                                    'Rata-rata Kehadiran',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${hasil.rataKehadiranPersen}%',
+                                    style: const TextStyle(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFF111827),
+                                      height: 1.0,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFA3D9A5),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.check_circle_rounded,
+                                    color: Color(0xFF236A28),
+                                    size: 22,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          height: 80,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: const Color(0xFFD1D5DB),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text(
+                                    'Total Tidak Hadir',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${hasil.totalTidakHadir}',
+                                    style: const TextStyle(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFF111827),
+                                      height: 1.0,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFECDD3),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    color: Color(0xFFE11D48),
+                                    size: 24,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Container(
                       decoration: BoxDecoration(
                         color: const Color(0xFFF3F4F6),
                         borderRadius: BorderRadius.circular(20),
@@ -766,6 +768,8 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
                             ),
                         ],
                       ),
+                    ),
+                      ],
                     );
                   },
                 ),
@@ -777,4 +781,16 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
       ),
     );
   }
+}
+
+class _RekapAbsensiHasil {
+  final List<Map<String, dynamic>> items;
+  final int rataKehadiranPersen;
+  final int totalTidakHadir;
+
+  const _RekapAbsensiHasil({
+    required this.items,
+    required this.rataKehadiranPersen,
+    required this.totalTidakHadir,
+  });
 }

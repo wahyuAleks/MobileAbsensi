@@ -15,37 +15,73 @@ import '../../core/constants.dart';
 class DetailLaporanScreen extends StatelessWidget {
   final Map<String, dynamic> item;
   final VoidCallback? onBack;
+  final String? namaKaryawan;
+  final bool useSampleFallbacks;
 
   const DetailLaporanScreen({
     super.key,
     required this.item,
     this.onBack,
+    this.namaKaryawan,
+    this.useSampleFallbacks = true,
   });
+
+  String _field(dynamic raw, String fallback) {
+    final value = raw?.toString().trim() ?? '';
+    if (value.isNotEmpty) return value;
+    return useSampleFallbacks ? fallback : '-';
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Ambil field dinamis dengan fallback ke data default persis screenshot Figma
-    final tanggal = item['tanggal']?.toString() ?? '17 Agustus 2026';
-    final status = item['status']?.toString() ?? 'Terkirim';
-    final jenisKegiatan = item['jenis_kegiatan']?.toString() ??
-        _inferJenisKegiatan(item['judul']?.toString() ?? '');
-    final lokasi = item['lokasi']?.toString() ??
-        _inferLokasi(item['judul']?.toString() ?? '');
-    final unitDrone = item['unit_drone']?.toString() ?? 'DA-001 (DJI Agras T40)';
-    final luasArea = item['luas_area']?.toString() ??
-        _inferLuasArea(item['judul']?.toString() ?? '');
+    final judul = _field(item['judul'], 'Detail Laporan');
+    final tanggal = _field(item['tanggal'], '17 Agustus 2026');
+    final status = _field(item['status'], 'Terkirim');
+    final jenisKegiatan = _field(
+      item['jenis_kegiatan'],
+      useSampleFallbacks
+          ? _inferJenisKegiatan(item['judul']?.toString() ?? '')
+          : '-',
+    );
+    final lokasi = _field(
+      item['lokasi'],
+      useSampleFallbacks ? _inferLokasi(item['judul']?.toString() ?? '') : '-',
+    );
+    final unitDrone = _field(
+      item['unit_drone'],
+      useSampleFallbacks ? 'DA-001 (DJI Agras T40)' : '-',
+    );
+    final luasArea = _field(
+      item['luas_area'],
+      useSampleFallbacks
+          ? _inferLuasArea(item['judul']?.toString() ?? '')
+          : '-',
+    );
 
-    final uraian = (item['uraian_pekerjaan'] ?? item['isi_laporan'] ?? '')
+    final uraian = (item['uraian_pekerjaan'] ??
+            item['isi_laporan'] ??
+            item['isi'] ??
+            '')
         .toString()
         .trim();
     final uraianText = uraian.isNotEmpty
         ? uraian
-        : 'Penyemprotan pestisida dilakukan pada lahan Blok A seluas 8 Ha. Drone DA-001 beroperasi dari pukul 07.00 – 11.30. Seluruh area berhasil disemprot dengan dosis sesuai anjuran.';
+        : (useSampleFallbacks
+            ? 'Penyemprotan pestisida dilakukan pada lahan Blok A seluas 8 Ha. Drone DA-001 beroperasi dari pukul 07.00 – 11.30. Seluruh area berhasil disemprot dengan dosis sesuai anjuran.'
+            : '-');
 
-    final hasil = item['hasil']?.toString() ??
-        'Penyemprotan 100% selesai. Tidak ada kendala signifikan.';
-    final rencanaEsok = item['rencana_esok']?.toString() ??
-        'Penyemprotan Blok B — 5 Ha dengan drone DA-002.';
+    final hasil = _field(
+      item['hasil'],
+      useSampleFallbacks
+          ? 'Penyemprotan 100% selesai. Tidak ada kendala signifikan.'
+          : '-',
+    );
+    final rencanaEsok = _field(
+      item['rencana_esok'],
+      useSampleFallbacks
+          ? 'Penyemprotan Blok B — 5 Ha dengan drone DA-002.'
+          : '-',
+    );
     // Parse lampiran: JSON array (multi-photo) or plain string (single)
     final lampiranRaw = item['lampiran']?.toString();
     final List<String> lampiranList = [];
@@ -108,13 +144,15 @@ class DetailLaporanScreen extends StatelessWidget {
                     const SizedBox(width: 12),
 
                     // Teks Judul
-                    const Text(
-                      'Detail Laporan',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF111827),
-                        letterSpacing: -0.2,
+                    const Expanded(
+                      child: Text(
+                        'Detail Laporan',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF111827),
+                          letterSpacing: -0.2,
+                        ),
                       ),
                     ),
                   ],
@@ -178,7 +216,11 @@ class DetailLaporanScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
 
-                          // Baris Data Key-Value
+                          if (judul != '-' && judul.isNotEmpty)
+                            _buildDetailRow('Judul', judul),
+                          if (namaKaryawan != null &&
+                              namaKaryawan!.trim().isNotEmpty)
+                            _buildDetailRow('Karyawan', namaKaryawan!.trim()),
                           _buildDetailRow('Jenis Kegiatan', jenisKegiatan),
                           _buildDetailRow('Lokasi', lokasi),
                           _buildDetailRow('Unit Drone', unitDrone),

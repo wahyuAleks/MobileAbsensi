@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -141,24 +139,10 @@ class _RekapDataScreenState extends State<RekapDataScreen> {
         setState(() {
           _chartError = e.toString();
           _chartLoading = false;
-          _chartRaw = _demoChartData();
+          _chartRaw = [];
         });
       }
     }
-  }
-
-  List<Map<String, dynamic>> _demoChartData() {
-    final now = DateTime.now();
-    final rng = Random(42);
-    return List.generate(30, (i) {
-      final d = now.subtract(Duration(days: 29 - i));
-      return {
-        'tanggal': DateFormat('yyyy-MM-dd').format(d),
-        'total_hektar': (rng.nextDouble() * 20 + 3).toStringAsFixed(2),
-        'lokasi': _selectedLokasi,
-        'nama_karyawan': 'Demo Karyawan',
-      };
-    });
   }
 
   // ───── MUAT DATA TABEL ─────

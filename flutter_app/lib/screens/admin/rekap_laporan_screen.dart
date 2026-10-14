@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/api_service.dart';
-import '../../core/constants.dart';
+import '../karyawan/detail_laporan_screen.dart';
 import 'components/notifikasi_sheet.dart';
 
 class RekapLaporanScreen extends StatefulWidget {
@@ -27,47 +27,6 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
   late Future<List<dynamic>> _future;
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
-
-  // Data default persis sesuai mockup gambar yang dikirimkan user
-  final List<Map<String, dynamic>> _mockLaporan = [
-    {
-      'id': 1,
-      'nama': 'Lilit\nRansink',
-      'initials': 'LR',
-      'avatarColor': const Color(0xFF2F6B64),
-      'tanggal': '18 Agustus\n2026',
-      'judul': 'Laporan Shift Pagi',
-      'isi': 'Semua target operasional shift pagi berjalan optimal sesuai SOP.',
-    },
-    {
-      'id': 2,
-      'nama': 'Ransink\nLilit',
-      'initials': 'RS',
-      'avatarColor': const Color(0xFF385C83),
-      'tanggal': '18 Agustus\n2026',
-      'judul': 'Laporan Pemasaran',
-      'isi':
-          'Analisis campaign kuartal ketiga menunjukkan pertumbuhan impresi 18%.',
-    },
-    {
-      'id': 3,
-      'nama': 'Udin\nKomarudin',
-      'initials': 'UK',
-      'avatarColor': const Color(0xFF2F6B64),
-      'tanggal': '18 Agustus\n2026',
-      'judul': 'Maintenance Server',
-      'isi': 'Pembaruan paket keamanan server internal selesai tanpa downtime.',
-    },
-    {
-      'id': 4,
-      'nama': 'Alak\nBizher',
-      'initials': 'AB',
-      'avatarColor': const Color(0xFF385C83),
-      'tanggal': '18 Agustus\n2026',
-      'judul': 'Pemeriksaan Logistik',
-      'isi': 'Stok barang masuk dan keluar telah diverifikasi sesuai manifes.',
-    },
-  ];
 
   @override
   void initState() {
@@ -100,85 +59,39 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
     );
   }
 
+  static const _namaBulan = [
+    '',
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
+  ];
+
+  String _formatTanggal(String raw) {
+    try {
+      final dt = DateTime.parse(raw);
+      return '${dt.day} ${_namaBulan[dt.month]} ${dt.year}';
+    } catch (_) {
+      return raw.replaceAll('\n', ' ');
+    }
+  }
+
   Future<void> _lihatDetailLaporan(Map<String, dynamic> item) async {
-    final lampiran = item['lampiran']?.toString();
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          item['judul'] ?? 'Detail Laporan',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DetailLaporanScreen(
+          item: item,
+          namaKaryawan: (item['nama'] ?? '').toString().replaceAll('\n', ' '),
+          useSampleFallbacks: false,
         ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.person_outline,
-                      size: 16, color: Color(0xFF4F5BA8)),
-                  const SizedBox(width: 6),
-                  Text(
-                    (item['nama'] ?? '').toString().replaceAll('\n', ' '),
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  const Icon(Icons.calendar_today_outlined,
-                      size: 16, color: Color(0xFF6B7280)),
-                  const SizedBox(width: 6),
-                  Text(
-                    (item['tanggal'] ?? '').toString().replaceAll('\n', ' '),
-                    style: const TextStyle(
-                        fontSize: 12.5, color: Color(0xFF6B7280)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Divider(height: 1),
-              const SizedBox(height: 12),
-              Text(
-                item['isi'] ?? '-',
-                style: const TextStyle(
-                    fontSize: 13, height: 1.4, color: Color(0xFF374151)),
-              ),
-              if (lampiran != null && lampiran.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                const Text(
-                  'Dokumentasi kegiatan lapangan',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    AppConstants.getImageUrl(lampiran)!,
-                    width: double.infinity,
-                    height: 180,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Text(
-                      'Foto dokumentasi tidak dapat dimuat.',
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Tutup',
-                style: TextStyle(
-                    color: Color(0xFF4F5BA8), fontWeight: FontWeight.bold)),
-          ),
-        ],
       ),
     );
   }
@@ -346,7 +259,7 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
                     decoration: const InputDecoration(
                       icon: Icon(Icons.search_rounded,
                           color: Color(0xFF9CA3AF), size: 22),
-                      hintText: 'Cari nama karyawan...',
+                      hintText: 'Cari nama, judul, atau isi laporan...',
                       hintStyle: TextStyle(
                         color: Color(0xFF9CA3AF),
                         fontSize: 14,
@@ -363,72 +276,89 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
                 FutureBuilder<List<dynamic>>(
                   future: _future,
                   builder: (context, snap) {
-                    List<Map<String, dynamic>> items;
-
-                    if (snap.hasData && snap.data!.isNotEmpty) {
-                      items = snap.data!.asMap().entries.map((entry) {
-                        final i = entry.key;
-                        final m = Map<String, dynamic>.from(entry.value);
-                        final user = m['User'] ?? {};
-                        final rawNama =
-                            (user['nama'] ?? m['nama'] ?? 'Karyawan')
-                                .toString();
-                        final parts = rawNama.trim().split(RegExp(r'\s+'));
-                        final initials = parts.length >= 2
-                            ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
-                            : rawNama.toUpperCase();
-                        final formattedNama = parts.length >= 2
-                            ? '${parts[0]}\n${parts.sublist(1).join(' ')}'
-                            : rawNama;
-
-                        final rawTgl = (m['tanggal'] ??
-                                m['createdAt'] ??
-                                '18 Agustus 2026')
-                            .toString();
-                        final formattedTgl = rawTgl.contains(' ')
-                            ? rawTgl.replaceFirst(' ', '\n')
-                            : rawTgl;
-
-                        return {
-                          'id': m['id'] ?? (i + 1),
-                          'nama': formattedNama,
-                          'initials': initials,
-                          'avatarColor': i.isEven
-                              ? const Color(0xFF2F6B64)
-                              : const Color(0xFF385C83),
-                          'tanggal': formattedTgl,
-                          'judul': m['judul'] ?? 'Laporan Kegiatan',
-                          'isi': m['isi_laporan'] ?? '-',
-                          'lampiran': m['lampiran'],
-                          'tanggal_raw': m['tanggal']?.toString() ?? '',
-                          'jenis_kegiatan': m['jenis_kegiatan'] ?? '',
-                          'lokasi': m['lokasi'] ?? '',
-                          'unit_drone': m['unit_drone'] ?? '',
-                          'luas_area': m['luas_area'] ?? '',
-                          'uraian_pekerjaan':
-                              m['uraian_pekerjaan'] ?? m['isi_laporan'] ?? '',
-                          'hasil': m['hasil'] ?? '',
-                          'rencana_esok': m['rencana_esok'] ?? '',
-                          'can_edit': true,
-                        };
-                      }).toList();
-                    } else {
-                      items = _mockLaporan;
+                    if (snap.connectionState == ConnectionState.waiting) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 48),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
                     }
 
-                    int totalLaporan = items.length;
-                    int totalKaryawan = 20; // Sesuai mockup gambar
-
-                    if (items == _mockLaporan) {
-                      totalLaporan = 15;
-                      totalKaryawan = 20;
+                    if (snap.hasError) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 36),
+                        child: Center(
+                          child: Text(
+                            'Gagal memuat laporan.\nTarik ke bawah untuk coba lagi.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.red.shade700,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      );
                     }
+
+                    final items = (snap.data ?? []).asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final m = Map<String, dynamic>.from(entry.value as Map);
+                      final user = m['User'] is Map
+                          ? Map<String, dynamic>.from(m['User'] as Map)
+                          : const <String, dynamic>{};
+                      final rawNama =
+                          (user['nama'] ?? m['nama'] ?? 'Karyawan').toString();
+                      final parts = rawNama.trim().split(RegExp(r'\s+'));
+                      final initials = parts.isEmpty || parts.first.isEmpty
+                          ? 'K'
+                          : (parts.length >= 2 && parts[1].isNotEmpty
+                              ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
+                              : parts[0][0].toUpperCase());
+                      final formattedNama = parts.length >= 2
+                          ? '${parts[0]}\n${parts.sublist(1).join(' ')}'
+                          : rawNama;
+                      final rawTgl =
+                          (m['tanggal'] ?? m['createdAt'] ?? '-').toString();
+
+                      return {
+                        'id': m['id'] ?? (i + 1),
+                        'nama': formattedNama,
+                        'initials': initials,
+                        'avatarColor': i.isEven
+                            ? const Color(0xFF2F6B64)
+                            : const Color(0xFF385C83),
+                        'tanggal': _formatTanggal(rawTgl),
+                        'judul': m['judul'] ?? 'Laporan Kegiatan',
+                        'isi': m['isi_laporan'] ?? m['uraian_pekerjaan'] ?? '-',
+                        'isi_laporan':
+                            m['isi_laporan'] ?? m['uraian_pekerjaan'] ?? '',
+                        'lampiran': m['lampiran'],
+                        'status': m['status'] ?? 'Terkirim',
+                        'jenis_kegiatan': m['jenis_kegiatan'] ?? '',
+                        'lokasi': m['lokasi'] ?? '',
+                        'unit_drone': m['unit_drone'] ?? '',
+                        'luas_area': m['luas_area'] ?? '',
+                        'uraian_pekerjaan':
+                            m['uraian_pekerjaan'] ?? m['isi_laporan'] ?? '',
+                        'hasil': m['hasil'] ?? '',
+                        'rencana_esok': m['rencana_esok'] ?? '',
+                      };
+                    }).toList();
+
+                    final totalLaporan = items.length;
+                    final totalKaryawan = items
+                        .map((item) =>
+                            (item['nama'] ?? '').toString().replaceAll('\n', ' '))
+                        .toSet()
+                        .length;
 
                     final filtered = items.where((k) {
                       if (_query.isEmpty) return true;
                       final nama = (k['nama'] ?? '').toString().toLowerCase();
                       final judul = (k['judul'] ?? '').toString().toLowerCase();
-                      return nama.contains(_query) || judul.contains(_query);
+                      final isi = (k['isi'] ?? '').toString().toLowerCase();
+                      return nama.contains(_query) ||
+                          judul.contains(_query) ||
+                          isi.contains(_query);
                     }).toList();
 
                     return Column(
@@ -518,11 +448,10 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Header Kolom: NAMA & TANGGAL (Tanpa garis divider)
                               const Row(
                                 children: [
                                   Expanded(
-                                    flex: 1,
+                                    flex: 3,
                                     child: Text(
                                       'NAMA',
                                       style: TextStyle(
@@ -534,7 +463,7 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
                                     ),
                                   ),
                                   Expanded(
-                                    flex: 1,
+                                    flex: 2,
                                     child: Text(
                                       'TANGGAL',
                                       style: TextStyle(
@@ -585,9 +514,8 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.center,
                                         children: [
-                                          // Kolom NAMA (Avatar + Nama 2 baris)
                                           Expanded(
-                                            flex: 1,
+                                            flex: 3,
                                             child: Row(
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.center,
@@ -607,32 +535,66 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
                                                 ),
                                                 const SizedBox(width: 10),
                                                 Expanded(
-                                                  child: Text(
-                                                    nama,
-                                                    style: const TextStyle(
-                                                      fontSize: 12.5,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: Color(0xFF111827),
-                                                      height: 1.25,
-                                                    ),
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        nama,
+                                                        style: const TextStyle(
+                                                          fontSize: 12.5,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color:
+                                                              Color(0xFF111827),
+                                                          height: 1.25,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        (item['judul'] ??
+                                                                'Laporan')
+                                                            .toString(),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: const TextStyle(
+                                                          fontSize: 11.5,
+                                                          color:
+                                                              Color(0xFF4F5BA8),
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                               ],
                                             ),
                                           ),
-
-                                          // Kolom TANGGAL (2 baris)
                                           Expanded(
-                                            flex: 1,
-                                            child: Text(
-                                              tanggal,
-                                              style: const TextStyle(
-                                                fontSize: 12.5,
-                                                fontWeight: FontWeight.bold,
-                                                color: Color(0xFF4B5563),
-                                                height: 1.25,
-                                              ),
+                                            flex: 2,
+                                            child: Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    tanggal,
+                                                    style: const TextStyle(
+                                                      fontSize: 12.5,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: Color(0xFF4B5563),
+                                                      height: 1.25,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const Icon(
+                                                  Icons
+                                                      .chevron_right_rounded,
+                                                  color: Color(0xFF9CA3AF),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ],
@@ -657,157 +619,3 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
   }
 }
 
-class _EditLaporanDialog extends StatefulWidget {
-  final Map<String, dynamic> laporan;
-
-  const _EditLaporanDialog({required this.laporan});
-
-  @override
-  State<_EditLaporanDialog> createState() => _EditLaporanDialogState();
-}
-
-class _EditLaporanDialogState extends State<_EditLaporanDialog> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _tanggalCtrl;
-  late final TextEditingController _judulCtrl;
-  late final TextEditingController _jenisCtrl;
-  late final TextEditingController _lokasiCtrl;
-  late final TextEditingController _unitCtrl;
-  late final TextEditingController _luasCtrl;
-  late final TextEditingController _uraianCtrl;
-  late final TextEditingController _hasilCtrl;
-  late final TextEditingController _rencanaCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _tanggalCtrl =
-        TextEditingController(text: widget.laporan['tanggal_raw']?.toString());
-    _judulCtrl =
-        TextEditingController(text: widget.laporan['judul']?.toString());
-    _jenisCtrl = TextEditingController(
-        text: widget.laporan['jenis_kegiatan']?.toString());
-    _lokasiCtrl =
-        TextEditingController(text: widget.laporan['lokasi']?.toString());
-    _unitCtrl =
-        TextEditingController(text: widget.laporan['unit_drone']?.toString());
-    _luasCtrl =
-        TextEditingController(text: widget.laporan['luas_area']?.toString());
-    _uraianCtrl = TextEditingController(
-        text: widget.laporan['uraian_pekerjaan']?.toString());
-    _hasilCtrl =
-        TextEditingController(text: widget.laporan['hasil']?.toString());
-    _rencanaCtrl =
-        TextEditingController(text: widget.laporan['rencana_esok']?.toString());
-  }
-
-  @override
-  void dispose() {
-    _tanggalCtrl.dispose();
-    _judulCtrl.dispose();
-    _jenisCtrl.dispose();
-    _lokasiCtrl.dispose();
-    _unitCtrl.dispose();
-    _luasCtrl.dispose();
-    _uraianCtrl.dispose();
-    _hasilCtrl.dispose();
-    _rencanaCtrl.dispose();
-    super.dispose();
-  }
-
-  Widget _field(
-    String label,
-    TextEditingController controller, {
-    int maxLines = 1,
-    bool required = false,
-    String? hint,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
-        controller: controller,
-        maxLines: maxLines,
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          border: const OutlineInputBorder(),
-        ),
-        validator: required
-            ? (value) =>
-                value == null || value.trim().isEmpty ? 'Wajib diisi' : null
-            : null,
-      ),
-    );
-  }
-
-  void _simpan() {
-    if (!_formKey.currentState!.validate()) return;
-    Navigator.pop(context, {
-      'tanggal': _tanggalCtrl.text.trim(),
-      'judul': _judulCtrl.text.trim(),
-      'jenis_kegiatan': _jenisCtrl.text.trim(),
-      'lokasi': _lokasiCtrl.text.trim(),
-      'unit_drone': _unitCtrl.text.trim(),
-      'luas_area': _luasCtrl.text.trim(),
-      'isi_laporan': _uraianCtrl.text.trim(),
-      'uraian_pekerjaan': _uraianCtrl.text.trim(),
-      'hasil': _hasilCtrl.text.trim(),
-      'rencana_esok': _rencanaCtrl.text.trim(),
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Edit Laporan'),
-      content: SizedBox(
-        width: 440,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _field('Tanggal (YYYY-MM-DD)', _tanggalCtrl, required: true),
-                _field('Judul laporan', _judulCtrl, required: true),
-                _field('Jenis kegiatan', _jenisCtrl),
-                _field('Lokasi / area', _lokasiCtrl),
-                _field('Unit drone', _unitCtrl),
-                _field(
-                  'Luas area',
-                  _luasCtrl,
-                  hint: 'Contoh: 8 Ha',
-                ),
-                _field(
-                  'Uraian pekerjaan',
-                  _uraianCtrl,
-                  maxLines: 4,
-                  required: true,
-                ),
-                _field('Hasil pekerjaan', _hasilCtrl, maxLines: 3),
-                _field('Rencana esok', _rencanaCtrl, maxLines: 3),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Foto dokumentasi yang sudah diunggah tetap dipertahankan.',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Batal'),
-        ),
-        FilledButton(
-          onPressed: _simpan,
-          child: const Text('Simpan perubahan'),
-        ),
-      ],
-    );
-  }
-}
