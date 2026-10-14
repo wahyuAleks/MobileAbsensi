@@ -129,9 +129,14 @@ exports.hapusKaryawan = async (req, res) => {
     const Absensi = require('../models/Absensi');
     const Cuti = require('../models/Cuti');
     const Laporan = require('../models/Laporan');
+    const WorkAssignment = require('../models/WorkAssignment');
+    const Notifikasi = require('../models/Notifikasi');
+
     await Absensi.destroy({ where: { user_id: user.id } });
     await Cuti.destroy({ where: { user_id: user.id } });
     await Laporan.destroy({ where: { user_id: user.id } });
+    await WorkAssignment.destroy({ where: { user_id: user.id } });
+    await Notifikasi.destroy({ where: { user_id: user.id } });
 
     await user.destroy();
     res.json({ message: 'Karyawan berhasil dihapus' });

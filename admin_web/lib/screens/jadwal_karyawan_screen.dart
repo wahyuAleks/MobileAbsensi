@@ -36,6 +36,17 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
 
   String get _tanggalApi => _tanggal.toIso8601String().substring(0, 10);
 
+  /// Map dari user_id ke list jadwal yang sudah ada di tanggal ini
+  Map<int, List<Map<String, dynamic>>> get _jadwalTersediaPerKaryawan {
+    final Map<int, List<Map<String, dynamic>>> map = {};
+    for (final slot in _slots) {
+      final uid = int.tryParse(slot['user_id']?.toString() ?? '');
+      if (uid == null) continue;
+      map.putIfAbsent(uid, () => []).add(slot);
+    }
+    return map;
+  }
+
   Map<String, dynamic>? get _selectedLocation {
     for (final location in _locations) {
       if (int.tryParse(location['id'].toString()) == _locationId) {
@@ -187,7 +198,12 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
         final count = _selectedEmployeeIds.length;
         _resetForm();
         await _muat();
-        if (mounted) _message('Jadwal kerja berhasil disimpan untuk $count karyawan.');
+        if (mounted) {
+          // Cek apakah ada karyawan yang di-skip karena bentrok
+          // Pesan sukses sudah termasuk info skip dari backend
+          _message(
+              'Jadwal kerja berhasil disimpan untuk $count karyawan (jam tidak bentrok akan tersimpan, yang bentrok di-skip).');
+        }
       } else {
         await ApiService.simpanJadwalKerja(
           id: _editingId,
@@ -373,96 +389,471 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
     }
   }
 
-  List<Widget> _buildLocationGroups() {
-    final Map<int, List<Map<String, dynamic>>> grouped = {};
+  // Kelompokkan slot berdasarkan (location_id, jam_mulai, jam_selesai)
+  // Setiap baris tabel = satu kombinasi lokasi+jam
+  List<Map<String, dynamic>> _buildTableRows() {
+    // Map key: "locationId_jamMulai_jamSelesai"
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
     for (final slot in _slots) {
-      final locationId = int.tryParse(slot['location_id']?.toString() ?? '');
-      final key = locationId ?? -1;
+      final locationId = slot['location_id']?.toString() ?? '-1';
+      final jamMulai = slot['jam_mulai']?.toString() ?? '00:00';
+      final jamSelesai = slot['jam_selesai']?.toString() ?? '00:00';
+      final key = '${locationId}_${jamMulai}_${jamSelesai}';
       grouped.putIfAbsent(key, () => []).add(slot);
     }
 
-    final orderedIds = <int>{
-      ..._locations.map((location) => int.tryParse(location['id']?.toString() ?? '') ?? -1),
-      ...grouped.keys,
-    }.toList();
+    // Juga tambahkan lokasi yang ada tapi belum ada slot di tanggal ini (jumlah 0)
+    final Set<String> addedLocationKeys =
+        grouped.keys.map((k) => k.split('_')[0]).toSet();
 
-    orderedIds.sort((a, b) {
-      if (a == -1) return 1;
-      if (b == -1) return -1;
-      return a.compareTo(b);
-    });
+    final rows = <Map<String, dynamic>>[];
 
-    final locationWidgets = <Widget>[];
-    for (final locationId in orderedIds) {
+    // Tambahkan baris dari slot yang ada
+    grouped.forEach((key, slots) {
+      final firstSlot = slots.first;
+      final locationId =
+          int.tryParse(firstSlot['location_id']?.toString() ?? '');
       final location = _locations.firstWhere(
-        (item) => int.tryParse(item['id']?.toString() ?? '') == locationId,
+        (l) => int.tryParse(l['id']?.toString() ?? '') == locationId,
         orElse: () => {'id': locationId, 'nama': 'Lokasi tidak diketahui'},
       );
+      final jamMulai = firstSlot['jam_mulai']?.toString() ?? '--:--';
+      final jamSelesai = firstSlot['jam_selesai']?.toString() ?? '--:--';
+      rows.add({
+        'location': location,
+        'location_id': locationId,
+        'jam_mulai': jamMulai.length >= 5 ? jamMulai.substring(0, 5) : jamMulai,
+        'jam_selesai':
+            jamSelesai.length >= 5 ? jamSelesai.substring(0, 5) : jamSelesai,
+        'slots': slots,
+      });
+    });
 
-      final slotList = grouped[locationId] ?? const <Map<String, dynamic>>[];
-      final title = location['nama']?.toString() ?? 'Lokasi tidak diketahui';
+    // Tambahkan lokasi yang belum memiliki slot (jumlah 0)
+    for (final loc in _locations) {
+      final locId = loc['id']?.toString() ?? '';
+      if (!addedLocationKeys.contains(locId)) {
+        rows.add({
+          'location': loc,
+          'location_id': int.tryParse(locId),
+          'jam_mulai': '-',
+          'jam_selesai': '-',
+          'slots': <Map<String, dynamic>>[],
+        });
+      }
+    }
 
-      locationWidgets.add(
-        Card(
-          elevation: 0,
-          margin: const EdgeInsets.only(bottom: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFFE5E7EB)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    // Urutkan: berdasarkan nama lokasi, lalu jam mulai
+    rows.sort((a, b) {
+      final namaA = (a['location']['nama'] ?? '').toString();
+      final namaB = (b['location']['nama'] ?? '').toString();
+      final cmpNama = namaA.compareTo(namaB);
+      if (cmpNama != 0) return cmpNama;
+      return (a['jam_mulai'] as String).compareTo(b['jam_mulai'] as String);
+    });
+
+    return rows;
+  }
+
+  void _lihatKaryawanDiLokasi(Map<String, dynamic> row) {
+    final slots = (row['slots'] as List).cast<Map<String, dynamic>>();
+    final namaLokasi = (row['location']['nama'] ?? 'Lokasi').toString();
+    final jamMulai = row['jam_mulai'] as String;
+    final jamSelesai = row['jam_selesai'] as String;
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
+                const Icon(Icons.location_on_outlined,
+                    color: Color(0xFF4F5BA8)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    namaLokasi,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${_formatTanggal()}   $jamMulai – $jamSelesai',
+              style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF6B7280),
+                  fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 430,
+          child: slots.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                      'Belum ada karyawan yang dijadwalkan di lokasi ini.'),
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.location_on_outlined, color: Color(0xFF4F5BA8)),
-                    const SizedBox(width: 8),
-                    Expanded(
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE9EAFE),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '${slotList.length} karyawan',
+                        '${slots.length} karyawan dijadwalkan',
                         style: const TextStyle(
                           color: Color(0xFF4338CA),
                           fontWeight: FontWeight.w600,
+                          fontSize: 13,
                         ),
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 360),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: slots.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (_, i) {
+                          final slot = slots[i];
+                          final user = slot['User'] is Map
+                              ? slot['User'] as Map
+                              : const {};
+                          final attendance = slot['absensi'];
+                          final locked =
+                              attendance is List && attendance.isNotEmpty;
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              backgroundColor: const Color(0xFFE9EAFE),
+                              child: Text(
+                                (user['nama']?.toString() ?? 'K').isNotEmpty
+                                    ? (user['nama']?.toString() ?? 'K')[0]
+                                        .toUpperCase()
+                                    : 'K',
+                                style: const TextStyle(
+                                  color: Color(0xFF4F5BA8),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            title: Text(
+                              user['nama']?.toString() ?? 'Karyawan',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: locked
+                                ? const Text(
+                                    'Absensi sudah tercatat',
+                                    style: TextStyle(
+                                        color: Color(0xFF059669), fontSize: 12),
+                                  )
+                                : const Text(
+                                    'Belum absen',
+                                    style: TextStyle(
+                                        color: Color(0xFF6B7280), fontSize: 12),
+                                  ),
+                            trailing: locked
+                                ? null
+                                : Wrap(
+                                    children: [
+                                      IconButton(
+                                        tooltip: 'Ubah',
+                                        icon: const Icon(Icons.edit_outlined,
+                                            size: 20),
+                                        onPressed: () {
+                                          Navigator.pop(ctx);
+                                          _edit(slot);
+                                        },
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Hapus',
+                                        icon: const Icon(Icons.delete_outline,
+                                            color: Colors.red, size: 20),
+                                        onPressed: () async {
+                                          Navigator.pop(ctx);
+                                          await _hapus(slot);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                          );
+                        },
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                if (slotList.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4, bottom: 2),
-                    child: Text(
-                      'Belum ada karyawan yang dijadwalkan di lokasi ini.',
-                      style: TextStyle(color: Colors.grey[600]),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJadwalTable() {
+    final rows = _buildTableRows();
+
+    const headerStyle = TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w700,
+      color: Color(0xFF6B7280),
+      letterSpacing: 0.5,
+    );
+    const cellStyle = TextStyle(
+      fontSize: 13,
+      color: Color(0xFF111827),
+    );
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE5E7EB)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.table_chart_outlined,
+                    color: Color(0xFF4F5BA8), size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Jadwal Kerja – ${_formatTanggal()}',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE9EAFE),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${_slots.length} slot jadwal',
+                    style: const TextStyle(
+                      color: Color(0xFF4338CA),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
                     ),
-                  )
-                else
-                  ...slotList.map(_buildSlot).toList(),
+                  ),
+                ),
               ],
             ),
-          ),
+            const SizedBox(height: 14),
+            // Header tabel
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Row(
+                children: [
+                  Expanded(flex: 3, child: Text('TANGGAL', style: headerStyle)),
+                  Expanded(flex: 4, child: Text('LOKASI', style: headerStyle)),
+                  Expanded(
+                      flex: 2, child: Text('JAM MASUK', style: headerStyle)),
+                  Expanded(
+                      flex: 2, child: Text('JAM PULANG', style: headerStyle)),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      'JML KARYAWAN',
+                      textAlign: TextAlign.center,
+                      style: headerStyle,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            if (rows.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(32),
+                child: Center(
+                  child: Text(
+                    'Belum ada jadwal atau lokasi untuk tanggal ini.',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: rows.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                itemBuilder: (ctx, i) {
+                  final row = rows[i];
+                  // Hitung penugasan per lokasi dan jam tanpa menghapus
+                  // karyawan yang juga dijadwalkan di lokasi lain.
+                  final jumlah = (row['slots'] as List).length;
+                  final hasSlots = jumlah > 0;
+                  final employeeNames = (row['slots'] as List)
+                      .cast<Map<String, dynamic>>()
+                      .map((slot) {
+                        final user = slot['User'];
+                        return user is Map ? user['nama']?.toString() : null;
+                      })
+                      .whereType<String>()
+                      .where((name) => name.trim().isNotEmpty)
+                      .toList();
+                  return InkWell(
+                    onTap: () => _lihatKaryawanDiLokasi(row),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          // Tanggal
+                          Expanded(
+                            flex: 3,
+                            child: Text(_tanggalApi, style: cellStyle),
+                          ),
+                          // Lokasi
+                          Expanded(
+                            flex: 4,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.location_on_outlined,
+                                    size: 15, color: Color(0xFF4F5BA8)),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        (row['location']['nama'] ??
+                                                'Lokasi tidak diketahui')
+                                            .toString(),
+                                        style: cellStyle.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (employeeNames.isNotEmpty)
+                                        Text(
+                                          employeeNames.join(', '),
+                                          style: cellStyle.copyWith(
+                                            color: const Color(0xFF6B7280),
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Jam Masuk
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              hasSlots ? row['jam_mulai'] as String : '-',
+                              style: cellStyle.copyWith(
+                                color: hasSlots
+                                    ? const Color(0xFF059669)
+                                    : const Color(0xFF9CA3AF),
+                                fontWeight: hasSlots
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                          // Jam Pulang
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              hasSlots ? row['jam_selesai'] as String : '-',
+                              style: cellStyle.copyWith(
+                                color: hasSlots
+                                    ? const Color(0xFFDC2626)
+                                    : const Color(0xFF9CA3AF),
+                                fontWeight: hasSlots
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                          // Jumlah Karyawan
+                          Expanded(
+                            flex: 2,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: hasSlots
+                                        ? const Color(0xFFE9EAFE)
+                                        : const Color(0xFFF3F4F6),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.people_alt_outlined,
+                                        size: 13,
+                                        color: hasSlots
+                                            ? const Color(0xFF4338CA)
+                                            : const Color(0xFF9CA3AF),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '$jumlah',
+                                        style: TextStyle(
+                                          color: hasSlots
+                                              ? const Color(0xFF4338CA)
+                                              : const Color(0xFF9CA3AF),
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (hasSlots) ...[
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.chevron_right,
+                                      size: 16, color: Color(0xFF9CA3AF)),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ],
         ),
-      );
-    }
-
-    return locationWidgets;
+      ),
+    );
   }
 
   @override
@@ -481,7 +872,7 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Atur penugasan lokasi dan jam kerja karyawan per tanggal. Satu karyawan dapat memiliki beberapa slot yang tidak saling bertabrakan.',
+                'Karyawan dapat dijadwalkan di beberapa lokasi dalam satu hari, selama jam kerjanya tidak saling bertabrakan.',
                 style: TextStyle(color: Color(0xFF6B7280), height: 1.4),
               ),
               const SizedBox(height: 18),
@@ -513,14 +904,8 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
                 )
               else if (_error != null)
                 _buildError()
-              else if (_slots.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(28),
-                  child: Center(
-                      child: Text('Belum ada jadwal untuk tanggal ini.')),
-                )
               else
-                ..._buildLocationGroups(),
+                _buildJadwalTable(),
             ],
           ),
         ),
@@ -550,7 +935,8 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
                   children: [
                     Text(
                       'Pilih Karyawan (${_selectedEmployeeIds.length} dipilih)',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14),
                     ),
                     const SizedBox(width: 12),
                     TextButton.icon(
@@ -577,6 +963,28 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
                       ),
                   ],
                 ),
+                if (_jadwalTersediaPerKaryawan.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 2),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFB923C),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'Latar oranye = sudah ada jadwal hari ini. Bisa dipilih lagi asal jam tidak bertabrakan.',
+                          style:
+                              TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                        ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 8),
                 Container(
                   constraints: const BoxConstraints(maxHeight: 180),
@@ -594,16 +1002,95 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
                         final id = int.tryParse(employee['id'].toString());
                         if (id == null) return const SizedBox.shrink();
                         final isSelected = _selectedEmployeeIds.contains(id);
-                        final nama = (employee['nama'] ?? 'Karyawan').toString();
+                        final nama =
+                            (employee['nama'] ?? 'Karyawan').toString();
+                        final jadwalAda = _jadwalTersediaPerKaryawan[id];
+                        final sudahTerjadwal =
+                            jadwalAda != null && jadwalAda.isNotEmpty;
+                        // Buat ringkasan jam yang sudah terjadwal
+                        final infoJam = sudahTerjadwal
+                            ? jadwalAda!.map((s) {
+                                final mulai = (s['jam_mulai']?.toString() ??
+                                                '--:--')
+                                            .length >=
+                                        5
+                                    ? s['jam_mulai'].toString().substring(0, 5)
+                                    : s['jam_mulai']?.toString() ?? '--:--';
+                                final selesai = (s['jam_selesai']?.toString() ??
+                                                '--:--')
+                                            .length >=
+                                        5
+                                    ? s['jam_selesai']
+                                        .toString()
+                                        .substring(0, 5)
+                                    : s['jam_selesai']?.toString() ?? '--:--';
+                                return '$mulai–$selesai';
+                              }).join(', ')
+                            : null;
                         return FilterChip(
                           selected: isSelected,
                           showCheckmark: true,
-                          label: Text(nama),
-                          selectedColor: const Color(0xFFE0E7FF),
-                          labelStyle: TextStyle(
-                            color: isSelected ? const Color(0xFF4338CA) : const Color(0xFF374151),
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          avatar: sudahTerjadwal
+                              ? Container(
+                                  width: 18,
+                                  height: 18,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? const Color(0xFF4338CA)
+                                        : const Color(0xFF6B7280),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '${jadwalAda!.length}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : null,
+                          label: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(nama),
+                              if (sudahTerjadwal)
+                                Text(
+                                  infoJam!,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: isSelected
+                                        ? const Color(0xFF4338CA)
+                                        : const Color(0xFF6B7280),
+                                  ),
+                                ),
+                            ],
                           ),
+                          selectedColor: const Color(0xFFE0E7FF),
+                          backgroundColor:
+                              sudahTerjadwal ? const Color(0xFFFFF7ED) : null,
+                          side: sudahTerjadwal
+                              ? BorderSide(
+                                  color: isSelected
+                                      ? const Color(0xFF4338CA)
+                                      : const Color(0xFFFB923C),
+                                  width: 1,
+                                )
+                              : null,
+                          labelStyle: TextStyle(
+                            color: isSelected
+                                ? const Color(0xFF4338CA)
+                                : const Color(0xFF374151),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                          tooltip: sudahTerjadwal
+                              ? 'Sudah terjadwal: $infoJam. Bisa ditambah dengan jam yang berbeda.'
+                              : null,
                           onSelected: (selected) {
                             setState(() {
                               if (selected) {
@@ -713,52 +1200,6 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
           ),
         ),
       );
-
-  Widget _buildSlot(Map<String, dynamic> slot) {
-    final user = slot['User'] is Map ? slot['User'] as Map : const {};
-    final location =
-        slot['Location'] is Map ? slot['Location'] as Map : const {};
-    final attendance = slot['absensi'];
-    final locked = attendance is List && attendance.isNotEmpty;
-    final start = slot['jam_mulai']?.toString() ?? '--:--';
-    final end = slot['jam_selesai']?.toString() ?? '--:--';
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
-      ),
-      child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: Color(0xFFE9EAFE),
-          child: Icon(Icons.schedule_rounded, color: Color(0xFF4F5BA8)),
-        ),
-        title: Text(
-          user['nama']?.toString() ?? 'Karyawan',
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text(
-          '${location['nama'] ?? 'Lokasi'} • ${start.substring(0, 5)}–${end.substring(0, 5)}'
-          '${locked ? ' • Absensi tercatat' : ''}',
-        ),
-        trailing: Wrap(
-          children: [
-            IconButton(
-              tooltip: locked ? 'Absensi sudah tercatat' : 'Ubah',
-              onPressed: locked ? null : () => _edit(slot),
-              icon: const Icon(Icons.edit_outlined),
-            ),
-            IconButton(
-              tooltip: locked ? 'Absensi sudah tercatat' : 'Hapus',
-              onPressed: locked ? null : () => _hapus(slot),
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildError() => Column(
         children: [

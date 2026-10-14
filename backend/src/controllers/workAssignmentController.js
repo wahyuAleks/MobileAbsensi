@@ -176,17 +176,35 @@ exports.tambahBanyak = async (req, res) => {
     }
 
     const createdIds = [];
+    const skipped = []; // karyawan yang bentrok jam-nya
+
     for (const userId of userIds) {
       const validated = await validateAssignment({
         ...req.body,
         user_id: userId,
       }, null, transaction);
+
       if (validated.error) {
+        // Jika error karena bentrok jadwal, skip karyawan ini (bukan error fatal)
+        if (
+          validated.error.includes('bertabrakan') ||
+          validated.error.includes('bertabrak')
+        ) {
+          // Cari nama karyawan untuk pesan yang informatif
+          const user = await User.findByPk(userId, {
+            attributes: ['id', 'nama'],
+            ...(transaction ? { transaction } : {}),
+          });
+          skipped.push(user?.nama || `Karyawan ID ${userId}`);
+          continue;
+        }
+        // Error lain (karyawan tidak ditemukan, lokasi tidak valid, dll.) → rollback semua
         await transaction.rollback();
         return res.status(400).json({
-          message: `${validated.user?.nama || `Karyawan ${userId}`}: ${validated.error}`,
+          message: `${validated.error}`,
         });
       }
+
       const assignment = await WorkAssignment.create(validated.value, { transaction });
       await buatNotifikasiJadwal(
         assignment,
@@ -197,15 +215,29 @@ exports.tambahBanyak = async (req, res) => {
       createdIds.push(assignment.id);
     }
 
+    if (createdIds.length === 0) {
+      await transaction.rollback();
+      const namaList = skipped.join(', ');
+      return res.status(409).json({
+        message: `Semua karyawan yang dipilih sudah memiliki jadwal dengan jam yang bertabrakan pada tanggal tersebut. (${namaList})`,
+      });
+    }
+
     await transaction.commit();
     const data = await WorkAssignment.findAll({
       where: { id: createdIds },
       include: includes(),
       order: [['jam_mulai', 'ASC'], ['id', 'ASC']],
     });
+
+    const warningMsg = skipped.length > 0
+      ? ` (${skipped.length} karyawan di-skip karena bentrok jam: ${skipped.join(', ')})`
+      : '';
+
     res.status(201).json({
-      message: `Jadwal kerja berhasil ditambahkan untuk ${data.length} karyawan`,
+      message: `Jadwal kerja berhasil ditambahkan untuk ${data.length} karyawan${warningMsg}`,
       data,
+      skipped,
     });
   } catch (err) {
     if (!transaction.finished) await transaction.rollback();
