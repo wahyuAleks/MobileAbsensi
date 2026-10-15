@@ -23,7 +23,7 @@ class DetailLaporanScreen extends StatelessWidget {
     required this.item,
     this.onBack,
     this.namaKaryawan,
-    this.useSampleFallbacks = true,
+    this.useSampleFallbacks = false,
   });
 
   String _field(dynamic raw, String fallback) {
@@ -43,6 +43,12 @@ class DetailLaporanScreen extends StatelessWidget {
           ? _inferJenisKegiatan(item['judul']?.toString() ?? '')
           : '-',
     );
+    final isMaintenance = jenisKegiatan.toLowerCase().contains('pemeliharaan') ||
+        jenisKegiatan.toLowerCase().contains('maintenance') ||
+        jenisKegiatan.toLowerCase().contains('perawatan') ||
+        jenisKegiatan.toLowerCase().contains('servis') ||
+        judul.toLowerCase().contains('pemeliharaan') ||
+        judul.toLowerCase().contains('maintenance');
     final lokasi = _field(
       item['lokasi'],
       useSampleFallbacks ? _inferLokasi(item['judul']?.toString() ?? '') : '-',
@@ -51,12 +57,14 @@ class DetailLaporanScreen extends StatelessWidget {
       item['unit_drone'],
       useSampleFallbacks ? 'DA-001 (DJI Agras T40)' : '-',
     );
-    final luasArea = _field(
-      item['luas_area'],
-      useSampleFallbacks
-          ? _inferLuasArea(item['judul']?.toString() ?? '')
-          : '-',
-    );
+    final luasArea = isMaintenance
+        ? ''
+        : _field(
+            item['luas_area'],
+            useSampleFallbacks
+                ? _inferLuasArea(item['judul']?.toString() ?? '')
+                : '',
+          );
 
     final uraian = (item['uraian_pekerjaan'] ??
             item['isi_laporan'] ??
@@ -224,7 +232,8 @@ class DetailLaporanScreen extends StatelessWidget {
                           _buildDetailRow('Jenis Kegiatan', jenisKegiatan),
                           _buildDetailRow('Lokasi', lokasi),
                           _buildDetailRow('Unit Drone', unitDrone),
-                          _buildDetailRow('Luas Area', luasArea),
+                          if (!isMaintenance && luasArea != '-' && luasArea.isNotEmpty)
+                            _buildDetailRow('Luas Area', luasArea),
                         ],
                       ),
                     ),
@@ -533,9 +542,15 @@ class DetailLaporanScreen extends StatelessWidget {
 
   static String _inferLuasArea(String judul) {
     final lower = judul.toLowerCase();
+    if (lower.contains('pemeliharaan') ||
+        lower.contains('maintenance') ||
+        lower.contains('perawatan') ||
+        lower.contains('servis')) {
+      return '';
+    }
     if (lower.contains('8 ha')) return '8 Ha';
     if (lower.contains('5 ha')) return '5 Ha';
     if (lower.contains('15 ha')) return '15 Ha';
-    return '8 Ha';
+    return '';
   }
 }

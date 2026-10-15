@@ -20,78 +20,6 @@ class _LaporanScreenState extends State<LaporanScreen> {
   List<Map<String, dynamic>> _listLaporan = [];
   Map<String, dynamic>? _laporanTerpilih;
 
-  // Data demo fallback yang persis seperti pada desain mockup
-  final List<Map<String, dynamic>> _demoLaporan = [
-    {
-      'id': 1,
-      'judul': 'Penyemprotan pestisida area Blok A — 8 Ha',
-      'tanggal': '17 Agustus 2026',
-      'waktu': '16:30',
-      'status': 'Terkirim',
-      'jenis_kegiatan': 'Penyemprotan Pestisida',
-      'lokasi': 'Sawah Blok A — Karawang',
-      'unit_drone': 'DA-001 (DJI Agras T40)',
-      'luas_area': '8 Ha',
-      'uraian_pekerjaan':
-          'Penyemprotan pestisida dilakukan pada lahan Blok A seluas 8 Ha. Drone DA-001 beroperasi dari pukul 07.00 – 11.30. Seluruh area berhasil disemprot dengan dosis sesuai anjuran.',
-      'hasil': 'Penyemprotan 100% selesai. Tidak ada kendala signifikan.',
-      'rencana_esok': 'Penyemprotan Blok B — 5 Ha dengan drone DA-002.',
-      'isi_laporan':
-          'Kegiatan operasional drone sprayer pada Blok A seluas 8 Hektar selesai sesuai SOP.',
-    },
-    {
-      'id': 2,
-      'judul': 'Survei dan pemetaan lahan baru Subang',
-      'tanggal': '16 Agt 2026',
-      'waktu': '17:00',
-      'status': 'Terkirim',
-      'jenis_kegiatan': 'Survei dan Pemetaan Lahan',
-      'lokasi': 'Lahan Perkebunan Subang',
-      'unit_drone': 'DA-003 (DJI Mavic 3M)',
-      'luas_area': '15 Ha',
-      'uraian_pekerjaan':
-          'Pemetaan kontur elevasi dan indeks vegetasi NDVI lahan baru Subang selesai dipetakan untuk perencanaan irigasi presisi.',
-      'hasil':
-          'Peta ortomosaik resolusi tinggi selesai diproses di server GIS.',
-      'rencana_esok': 'Analisis data NDVI bersama tim agronomi internal.',
-      'isi_laporan':
-          'Pemetaan elevasi dan batas kontur lahan baru wilayah Subang menggunakan drone pemeta.',
-    },
-    {
-      'id': 3,
-      'judul': 'Pemeliharaan rutin drone DA-001 dan DA-002',
-      'tanggal': '15 Agt 2026',
-      'waktu': '15:45',
-      'status': 'Terkirim',
-      'jenis_kegiatan': 'Pemeliharaan Rutin Drone',
-      'lokasi': 'Hangar Drone Agrikultur',
-      'unit_drone': 'DA-001 & DA-002',
-      'luas_area': '-',
-      'uraian_pekerjaan':
-          'Pemeriksaan motor brushless, kalibrasi sensor kompas, dan pembersihan rotor unit DA-001 & DA-002 selesai sesuai SOP.',
-      'hasil': 'Kondisi unit drone 100% siap terbang operasional besok.',
-      'rencana_esok': 'Uji coba penerbangan sensor multispektral DA-003.',
-      'isi_laporan':
-          'Pemeriksaan motor brushless, kalibrasi sensor kompas, dan pembersihan rotor unit DA-001 & DA-002.',
-    },
-    {
-      'id': 4,
-      'judul': 'Penyebaran pupuk urea Blok B — 5 Ha',
-      'tanggal': '14 Agt 2026',
-      'waktu': '16:50',
-      'status': 'Terkirim',
-      'jenis_kegiatan': 'Penyebaran Pupuk Urea',
-      'lokasi': 'Sawah Blok B — Karawang',
-      'unit_drone': 'DA-002 (DJI Agras T40)',
-      'luas_area': '5 Ha',
-      'uraian_pekerjaan':
-          'Penyebaran butiran pupuk urea dengan spreader drone selesai dengan tingkat presisi dan sebaran merata.',
-      'hasil': 'Penyebaran pupuk 100% selesai sesuai takaran agronomis.',
-      'rencana_esok': 'Inspeksi visual perkembangan tunas pada Blok B.',
-      'isi_laporan':
-          'Penyebaran butiran pupuk urea dengan spreader drone selesai dengan presisi tinggi.',
-    },
-  ];
 
   @override
   void initState() {
@@ -155,31 +83,25 @@ class _LaporanScreenState extends State<LaporanScreen> {
           'jenis_kegiatan': item['jenis_kegiatan'] ??
               item['judul'] ??
               'Penyemprotan Pestisida',
-          'lokasi': item['lokasi'] ?? 'Sawah Blok A — Karawang',
-          'unit_drone': item['unit_drone'] ?? 'DA-001 (DJI Agras T40)',
-          'luas_area': item['luas_area'] ?? '8 Ha',
+          'lokasi': item['lokasi'] ?? '',
+          'unit_drone': item['unit_drone'] ?? '',
+          'luas_area': item['luas_area'] ?? '',
           'uraian_pekerjaan':
               item['uraian_pekerjaan'] ?? item['isi_laporan'] ?? '',
-          'hasil': item['hasil'] ??
-              'Penyemprotan 100% selesai. Tidak ada kendala signifikan.',
-          'rencana_esok': item['rencana_esok'] ??
-              'Penyemprotan Blok B — 5 Ha dengan drone DA-002.',
+          'hasil': item['hasil'] ?? '',
+          'rencana_esok': item['rencana_esok'] ?? '',
           'lampiran': item['lampiran'],
         });
       }
 
       setState(() {
-        if (parsed.isNotEmpty) {
-          _listLaporan = [...parsed, ..._demoLaporan];
-        } else {
-          _listLaporan = _demoLaporan;
-        }
+        _listLaporan = parsed;
         _loading = false;
       });
     } catch (_) {
       if (mounted) {
         setState(() {
-          _listLaporan = _demoLaporan;
+          _listLaporan = [];
           _loading = false;
         });
       }

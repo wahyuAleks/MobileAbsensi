@@ -27,12 +27,12 @@ class HomeAdminScreen extends StatefulWidget {
 }
 
 class _HomeAdminScreenState extends State<HomeAdminScreen> {
-  int _totalKaryawan = 24;
-  int _hadirHariIni = 18;
-  int _belumAbsen = 4;
-  int _terlambat = 2;
-  int _pengajuanCuti = 3;
-  int _laporanMasuk = 16;
+  int _totalKaryawan = 0;
+  int _hadirHariIni = 0;
+  int _belumAbsen = 0;
+  int _terlambat = 0;
+  int _pengajuanCuti = 0;
+  int _laporanMasuk = 0;
 
   List<Map<String, dynamic>> _absensiList = [];
 
@@ -84,9 +84,7 @@ class _HomeAdminScreenState extends State<HomeAdminScreen> {
           }
         });
       }
-    } catch (_) {
-      // Tetap gunakan fallback mockup values yang presisi sesuai desain
-    }
+    } catch (_) {}
   }
 
   String _formatTanggalHariIni() {
@@ -475,13 +473,15 @@ class _HomeAdminScreenState extends State<HomeAdminScreen> {
                           );
                         })
                       else
-                        // Data default sesuai mockup (Ahmad Fauzi, 07:58, Tepat Waktu)
-                        _buildTableRow(
-                          initials: 'AF',
-                          nama: 'Ahmad Fauzi',
-                          jabatan: 'Teknisi Drone',
-                          jamMasuk: '07:58',
-                          isTerlambat: false,
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: Center(
+                            child: Text(
+                              'Belum ada absensi hari ini',
+                              style: TextStyle(
+                                  color: Color(0xFF9CA3AF), fontSize: 13),
+                            ),
+                          ),
                         ),
                     ],
                   ),

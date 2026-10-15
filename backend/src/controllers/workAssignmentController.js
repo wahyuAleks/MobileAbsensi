@@ -54,18 +54,28 @@ async function validateAssignment(body, excludeId = null, transaction = null) {
     return { error: 'Atur koordinat GPS dan radius lokasi sebelum membuat jadwal kerja' };
   }
 
-  const where = {
+  const newStart = `${start}:00`;
+  const newEnd = `${end}:00`;
+  const overlapWhere = {
     user_id: Number(userId),
     tanggal,
-    jam_mulai: { [Op.lt]: `${end}:00` },
-    jam_selesai: { [Op.gt]: `${start}:00` },
+    jam_mulai: { [Op.lt]: newEnd },
+    jam_selesai: { [Op.gt]: newStart },
   };
-  if (excludeId != null) where.id = { [Op.ne]: excludeId };
-  if (await WorkAssignment.findOne({
-    where,
+  if (excludeId != null) overlapWhere.id = { [Op.ne]: excludeId };
+  const conflicting = await WorkAssignment.findOne({
+    where: overlapWhere,
+    include: [{ model: Location, attributes: ['id', 'nama'] }],
     ...(transaction ? { transaction } : {}),
-  })) {
-    return { error: 'Jadwal karyawan bertabrakan dengan slot lain pada tanggal tersebut' };
+  });
+  if (conflicting) {
+    const cStart = (conflicting.jam_mulai || '').slice(0, 5);
+    const cEnd = (conflicting.jam_selesai || '').slice(0, 5);
+    const cLoc = conflicting.Location?.nama || 'lokasi lain';
+    return {
+      error: `Jadwal bertabrakan dengan slot ${cStart}–${cEnd} di ${cLoc} pada tanggal tersebut`,
+      user,
+    };
   }
   return {
     value: {

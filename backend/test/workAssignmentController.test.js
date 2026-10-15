@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { Op } = require('sequelize');
 const sequelize = require('../src/config/db');
 const User = require('../src/models/User');
 const Location = require('../src/models/Location');
@@ -255,4 +256,150 @@ test('today schedule marks an assignment complete when its attendance record is 
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.slots[0].status, 'selesai');
   assert.equal(res.body.slots[0].action, null);
+});
+
+test('non-overlapping slots for the same employee on the same date are allowed', async (t) => {
+  const originals = {
+    transaction: sequelize.transaction,
+    userFindOne: User.findOne,
+    locationFindByPk: Location.findByPk,
+    assignmentFindOne: WorkAssignment.findOne,
+    assignmentCreate: WorkAssignment.create,
+    assignmentFindByPk: WorkAssignment.findByPk,
+    notificationCreate: Notifikasi.create,
+  };
+  const transaction = mockTransaction();
+  const existingSlots = [{
+    id: 99,
+    user_id: 11,
+    tanggal: '2026-10-15',
+    jam_mulai: '08:00:00',
+    jam_selesai: '12:00:00',
+    Location: { id: 1, nama: 'Bandung' },
+  }];
+
+  t.after(() => {
+    sequelize.transaction = originals.transaction;
+    User.findOne = originals.userFindOne;
+    Location.findByPk = originals.locationFindByPk;
+    WorkAssignment.findOne = originals.assignmentFindOne;
+    WorkAssignment.create = originals.assignmentCreate;
+    WorkAssignment.findByPk = originals.assignmentFindByPk;
+    Notifikasi.create = originals.notificationCreate;
+  });
+
+  sequelize.transaction = async () => transaction;
+  User.findOne = async ({ where }) => ({ id: where.id, nama: `Karyawan ${where.id}` });
+  Location.findByPk = async (id) => ({
+    id,
+    nama: id === 2 ? 'Banyuwangi' : 'Bandung',
+    latitude: -8.1,
+    longitude: 114.2,
+    radius_meters: 250,
+  });
+  // Simulate overlap check: new slot 14:00-17:00 should NOT overlap with 08:00-12:00
+  WorkAssignment.findOne = async ({ where }) => {
+    const queryEnd = where.jam_mulai[Op.lt];   // new end time
+    const queryStart = where.jam_selesai[Op.gt]; // new start time
+    // Find any existing slot that overlaps
+    return existingSlots.find((slot) =>
+      slot.user_id === where.user_id &&
+      slot.tanggal === where.tanggal &&
+      slot.jam_mulai < queryEnd &&
+      slot.jam_selesai > queryStart
+    ) || null;
+  };
+  WorkAssignment.create = async (values) => {
+    const assignment = { id: 100, ...values };
+    return assignment;
+  };
+  WorkAssignment.findByPk = async () => ({
+    id: 100,
+    user_id: 11,
+    location_id: 2,
+    tanggal: '2026-10-15',
+    jam_mulai: '14:00:00',
+    jam_selesai: '17:00:00',
+    User: { id: 11, nama: 'Karyawan 11', jabatan: 'Staff' },
+    Location: { id: 2, nama: 'Banyuwangi' },
+    absensi: [],
+  });
+  Notifikasi.create = async () => ({});
+
+  const res = responseMock();
+  await controller.tambah({
+    body: {
+      user_id: 11,
+      location_id: 2,
+      tanggal: '2026-10-15',
+      jam_mulai: '14:00',
+      jam_selesai: '17:00',
+    },
+  }, res);
+
+  assert.equal(res.statusCode, 201, `Expected 201 but got ${res.statusCode}: ${JSON.stringify(res.body)}`);
+  assert.ok(res.body.message.includes('berhasil'));
+});
+
+test('overlapping slots for the same employee on the same date are rejected with details', async (t) => {
+  const originals = {
+    transaction: sequelize.transaction,
+    userFindOne: User.findOne,
+    locationFindByPk: Location.findByPk,
+    assignmentFindOne: WorkAssignment.findOne,
+    notificationCreate: Notifikasi.create,
+  };
+  const transaction = mockTransaction();
+
+  t.after(() => {
+    sequelize.transaction = originals.transaction;
+    User.findOne = originals.userFindOne;
+    Location.findByPk = originals.locationFindByPk;
+    WorkAssignment.findOne = originals.assignmentFindOne;
+    Notifikasi.create = originals.notificationCreate;
+  });
+
+  sequelize.transaction = async () => transaction;
+  User.findOne = async ({ where }) => ({ id: where.id, nama: `Karyawan ${where.id}` });
+  Location.findByPk = async (id) => ({
+    id,
+    nama: 'Bandung',
+    latitude: -8.1,
+    longitude: 114.2,
+    radius_meters: 250,
+  });
+  // Simulate overlap: new slot 10:00-15:00 overlaps with existing 08:00-12:00
+  WorkAssignment.findOne = async ({ where }) => {
+    const queryEnd = where.jam_mulai[Op.lt];
+    const queryStart = where.jam_selesai[Op.gt];
+    const existing = {
+      id: 99,
+      user_id: 11,
+      tanggal: '2026-10-15',
+      jam_mulai: '08:00:00',
+      jam_selesai: '12:00:00',
+      Location: { id: 1, nama: 'Bandung' },
+    };
+    if (existing.jam_mulai < queryEnd && existing.jam_selesai > queryStart) {
+      return existing;
+    }
+    return null;
+  };
+
+  const res = responseMock();
+  await controller.tambah({
+    body: {
+      user_id: 11,
+      location_id: 1,
+      tanggal: '2026-10-15',
+      jam_mulai: '10:00',
+      jam_selesai: '15:00',
+    },
+  }, res);
+
+  assert.equal(res.statusCode, 400);
+  assert.ok(res.body.message.includes('bertabrakan'));
+  assert.ok(res.body.message.includes('08:00'));
+  assert.ok(res.body.message.includes('12:00'));
+  assert.ok(res.body.message.includes('Bandung'));
 });

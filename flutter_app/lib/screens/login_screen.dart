@@ -53,12 +53,12 @@ class _LoginScreenState extends State<LoginScreen> {
       final isAdmin = user['role'] == 'admin';
       final nama = (user['nama'] != null && user['nama'].toString().isNotEmpty)
           ? user['nama'].toString()
-          : (isAdmin ? 'Super Admin' : 'Lilit Ransink');
+          : (isAdmin ? 'Super Admin' : 'Karyawan');
       final roleTitle = isAdmin
           ? 'Administrator'
           : ((user['jabatan'] != null && user['jabatan'].toString().isNotEmpty)
               ? user['jabatan'].toString()
-              : 'Teknisi Drone');
+              : 'Karyawan');
 
       bool navigated = false;
       await SelamatDatangPopup.show(
@@ -104,154 +104,11 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _isiAkunDemo(String email, String password) {
-    setState(() {
-      _emailCtrl.text = email;
-      _passwordCtrl.text = password;
-      _errorTeks = null;
-    });
-  }
 
   void _lupaPassword() {
     LupaPasswordPopup.show(
       context,
       initialEmail: _emailCtrl.text.trim(),
-    );
-  }
-
-  Future<void> _ubahServerUrl() async {
-    final serverCtrl = TextEditingController(text: AppConstants.baseUrl);
-    bool testing = false;
-    bool? testSuccess;
-    String testMsg = '';
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Pengaturan Server URL'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Pilih preset sesuai perangkat pengujian:',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    ActionChip(
-                      label: const Text('USB HP (127.0.0.1)', style: TextStyle(fontSize: 11)),
-                      onPressed: () {
-                        setDialogState(() {
-                          serverCtrl.text = AppConstants.urlUsb;
-                          testSuccess = null;
-                        });
-                      },
-                    ),
-                    ActionChip(
-                      label: const Text('Emulator (10.0.2.2)', style: TextStyle(fontSize: 11)),
-                      onPressed: () {
-                        setDialogState(() {
-                          serverCtrl.text = AppConstants.urlEmulator;
-                          testSuccess = null;
-                        });
-                      },
-                    ),
-                    ActionChip(
-                      label: const Text('Localhost (Chrome)', style: TextStyle(fontSize: 11)),
-                      onPressed: () {
-                        setDialogState(() {
-                          serverCtrl.text = AppConstants.urlLocalhost;
-                          testSuccess = null;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: serverCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'URL Server Backend',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    OutlinedButton.icon(
-                      icon: testing
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.wifi_tethering, size: 16),
-                      label: const Text('Tes Koneksi', style: TextStyle(fontSize: 12)),
-                      onPressed: testing
-                          ? null
-                          : () async {
-                              setDialogState(() {
-                                testing = true;
-                                testSuccess = null;
-                              });
-                              final ok = await ApiService.testConnection(serverCtrl.text);
-                              setDialogState(() {
-                                testing = false;
-                                testSuccess = ok;
-                                testMsg = ok
-                                    ? '✓ Server Aktif & Terhubung!'
-                                    : '✗ Gagal terhubung ke URL ini.';
-                              });
-                            },
-                    ),
-                    const SizedBox(width: 8),
-                    if (testSuccess != null)
-                      Expanded(
-                        child: Text(
-                          testMsg,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: testSuccess! ? Colors.green.shade700 : Colors.red,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Batal'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final input = serverCtrl.text.trim();
-                Navigator.pop(ctx);
-                if (input.isNotEmpty) {
-                  await AppConstants.setBaseUrl(input);
-                  if (mounted) {
-                    setState(() => _errorTeks = null);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('URL Server disimpan: ${AppConstants.baseUrl}')),
-                    );
-                  }
-                }
-              },
-              child: const Text('Simpan & Terapkan'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -285,11 +142,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               MaterialPageRoute(builder: (_) => const OnboardingScreen()),
                             );
                           },
-                        ),
-                        IconButton(
-                          tooltip: 'Pengaturan Server',
-                          icon: Icon(Icons.dns_outlined, color: Colors.white.withValues(alpha: 0.8), size: 20),
-                          onPressed: _ubahServerUrl,
                         ),
                       ],
                     ),
@@ -497,7 +349,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             Row(
                               children: [
                                 const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                                const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     _errorTeks!,
@@ -506,22 +357,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ],
                             ),
-                            if (_errorTeks!.contains('terhubung') || _errorTeks!.contains('server')) ...[
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  icon: const Icon(Icons.settings, size: 16),
-                                  label: const Text('Ubah / Cek Pengaturan Server', style: TextStyle(fontSize: 12)),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.red.shade900,
-                                    side: BorderSide(color: Colors.red.shade300),
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                  onPressed: _ubahServerUrl,
-                                ),
-                              ),
-                            ],
                           ],
                         ),
                       ),
@@ -559,73 +394,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 22),
-
-                    // Divider Garis Pemisah
-                    const Divider(color: Color(0xFFE5E7EB), thickness: 1.2),
-                    const SizedBox(height: 12),
-
-                    // Text Demo Login
-                    const Center(
-                      child: Text(
-                        'Demo Login',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF6B7280),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Tombol Pilihan Karyawan & Admin
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              side: const BorderSide(color: Color(0xFFD1D5DB), width: 1.2),
-                              foregroundColor: const Color(0xFF9CA3AF),
-                            ),
-                            onPressed: () => _isiAkunDemo('karyawan@mail.com', 'karyawan123'),
-                            child: const Text(
-                              'Karyawan',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF9CA3AF),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              side: const BorderSide(color: Color(0xFFD1D5DB), width: 1.2),
-                              foregroundColor: const Color(0xFF9CA3AF),
-                            ),
-                            onPressed: () => _isiAkunDemo('admin@mail.com', 'admin123'),
-                            child: const Text(
-                              'Admin',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF9CA3AF),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                     const SizedBox(height: 24),
                   ],
                 ),

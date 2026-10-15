@@ -21,17 +21,17 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
-  String _nama = 'Ahmad Fauzi';
+  String _nama = '';
   String? _fotoProfil;
   String? _jamMasuk;
   String? _jamPulang;
   List<Map<String, dynamic>> _jadwalHariIni = [];
   String? _jadwalError;
 
-  int _countHadir = 14;
-  int _countTerlambat = 2;
-  int _countLaporan = 13;
-  int _countCuti = 1;
+  int _countHadir = 0;
+  int _countTerlambat = 0;
+  int _countLaporan = 0;
+  int _countCuti = 0;
 
   @override
   void initState() {
@@ -104,37 +104,34 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       } catch (_) {}
 
-      // Ambil ringkasan riwayat jika tersedia
       try {
         final riwayat = await ApiService.riwayatAbsen();
-        if (riwayat.isNotEmpty) {
-          int hadir = 0;
-          int terlambat = 0;
-          for (final r in riwayat) {
-            final st = (r['status'] ?? '').toString().toLowerCase();
-            if (st.contains('terlambat') || st == 'telat') {
-              terlambat++;
-            } else if (r['jam_masuk'] != null) {
-              hadir++;
-            }
+        int hadir = 0;
+        int terlambat = 0;
+        for (final r in riwayat) {
+          final st = (r['status'] ?? '').toString().toLowerCase();
+          if (st.contains('terlambat') || st == 'telat') {
+            terlambat++;
+          } else if (r['jam_masuk'] != null) {
+            hadir++;
           }
-          if (mounted && hadir > 0) {
-            _countHadir = hadir;
-            _countTerlambat = terlambat;
-          }
+        }
+        if (mounted) {
+          _countHadir = hadir;
+          _countTerlambat = terlambat;
         }
       } catch (_) {}
 
       try {
         final lap = await ApiService.laporanSaya();
-        if (mounted && lap.isNotEmpty) {
+        if (mounted) {
           _countLaporan = lap.length;
         }
       } catch (_) {}
 
       try {
         final cutiList = await ApiService.informasiCutiSaya();
-        if (mounted && cutiList.isNotEmpty) {
+        if (mounted) {
           _countCuti = cutiList.length;
         }
       } catch (_) {}
@@ -773,40 +770,26 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ],
                         ),
-                        child: Column(
-                          children: [
-                            _buildAktivitasItem(
-                              icon: Icons.check_circle,
-                              iconBg: const Color(0xFFDCFCE7),
-                              iconColor: const Color(0xFF16A34A),
-                              title: 'Absensi Masuk',
-                              subtitle: 'Kemarin, 17 Agt',
-                            ),
-                            const Divider(
-                                height: 1,
-                                indent: 60,
-                                endIndent: 16,
-                                color: Color(0xFFF3F4F6)),
-                            _buildAktivitasItem(
-                              icon: Icons.check_circle,
-                              iconBg: const Color(0xFFDCFCE7),
-                              iconColor: const Color(0xFF16A34A),
-                              title: 'Laporan Dikirim',
-                              subtitle: 'Kemarin, 17 Agt',
-                            ),
-                            const Divider(
-                                height: 1,
-                                indent: 60,
-                                endIndent: 16,
-                                color: Color(0xFFF3F4F6)),
-                            _buildAktivitasItem(
-                              icon: Icons.access_time,
-                              iconBg: const Color(0xFFFFEDD5),
-                              iconColor: const Color(0xFFEA580C),
-                              title: 'Absensi Terlambat',
-                              subtitle: '16 Agustus',
-                            ),
-                          ],
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.history_rounded,
+                                size: 36,
+                                color: Color(0xFFD1D5DB),
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Belum ada aktivitas terbaru',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF9CA3AF),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

@@ -315,6 +315,28 @@ async function ensureAttendanceScheduleColumns() {
   }
 }
 
+async function dropStaleWorkAssignmentUniqueIndexes() {
+  const queryInterface = sequelize.getQueryInterface();
+  try {
+    const indexes = await queryInterface.showIndex('work_assignments');
+    for (const index of indexes) {
+      if (!index.unique || index.primary) continue;
+      const cols = (index.fields || []).map((f) => (typeof f === 'string' ? f : f.attribute));
+      // Drop any unique index on (user_id, tanggal) that doesn't also include time columns,
+      // since multiple non-overlapping slots for the same employee/date must be allowed.
+      if (cols.includes('user_id') && cols.includes('tanggal') && !cols.includes('jam_mulai')) {
+        console.log(`⚠ Dropping stale unique index "${index.name}" on work_assignments (${cols.join(', ')})`);
+        await queryInterface.removeIndex('work_assignments', index.name);
+      }
+    }
+  } catch (err) {
+    // Table might not exist yet on first run
+    if (!err.message.includes('ER_NO_SUCH_TABLE') && !err.message.includes('SQLITE_ERROR')) {
+      console.warn('Gagal cek index work_assignments:', err.message);
+    }
+  }
+}
+
 async function ensureJenisKegiatanMaster() {
   const queryInterface = sequelize.getQueryInterface();
   const laporanColumns = await queryInterface.describeTable('laporan');
@@ -413,6 +435,7 @@ async function startServer() {
     await ensureDatabaseExists();
     await sequelize.sync(); // ganti { alter: true } saat development kalau skema berubah
     await ensureAttendanceScheduleColumns();
+    await dropStaleWorkAssignmentUniqueIndexes();
     await ensureJenisKegiatanMaster();
     console.log('✓ Database terhubung & model tersinkronisasi');
     await seedDefaultLocations();

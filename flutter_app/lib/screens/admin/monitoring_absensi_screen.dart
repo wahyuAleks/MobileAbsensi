@@ -34,107 +34,6 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
   String _activeFilter = 'semua'; // 'semua', 'hadir', 'terlambat', 'belum'
   late Future<List<dynamic>> _future;
 
-  // Data default persis sesuai 4 mockup gambar yang dikirimkan user
-  final List<Map<String, dynamic>> _mockAbsensi = [
-    {
-      'id': 1,
-      'nama': 'Jungkook',
-      'rawNama': 'Jungkook',
-      'email': 'jungkook@mail.com',
-      'initials': 'JK',
-      'avatarColor': const Color(0xFF2F6B64),
-      'devisi': 'Teknisi\nDrone',
-      'jam_masuk': '07:58',
-      'jam_pulang': '17:05',
-      'total_jam': '9 jam 7 menit',
-      'status': 'hadir',
-      'tanggal_lengkap': 'Jumat, 2 Oktober 2026',
-      'lokasi': 'Kantor Pusat — Jl. Sudirman No. 45',
-      'lat_masuk': -6.949161,
-      'lng_masuk': 107.645018,
-    },
-    {
-      'id': 2,
-      'nama': 'Dhila\nCimoy',
-      'rawNama': 'Dhila Cimoy',
-      'email': 'dhila@mail.com',
-      'initials': 'DC',
-      'avatarColor': const Color(0xFF385C83),
-      'devisi': 'Operator',
-      'jam_masuk': '08:30',
-      'jam_pulang': '17:00',
-      'total_jam': '8 jam 30 menit',
-      'status': 'terlambat',
-      'tanggal_lengkap': 'Jumat, 2 Oktober 2026',
-      'lokasi': 'Kantor Pusat — Jl. Sudirman No. 45',
-      'lat_masuk': -6.949210,
-      'lng_masuk': 107.645120,
-    },
-    {
-      'id': 3,
-      'nama': 'Lino\nBoncel',
-      'rawNama': 'Lino Boncel',
-      'email': 'lino@mail.com',
-      'initials': 'LB',
-      'avatarColor': const Color(0xFF2F6B64),
-      'devisi': 'Analis\nData',
-      'jam_masuk': '07:45',
-      'jam_pulang': '17:15',
-      'total_jam': '9 jam 30 menit',
-      'status': 'hadir',
-      'tanggal_lengkap': 'Jumat, 2 Oktober 2026',
-      'lokasi': 'Kantor Pusat — Jl. Sudirman No. 45',
-      'lat_masuk': -6.949180,
-      'lng_masuk': 107.645030,
-    },
-    {
-      'id': 4,
-      'nama': 'Alek\nSiregar',
-      'rawNama': 'Alek Siregar',
-      'email': 'alek@mail.com',
-      'initials': 'AS',
-      'avatarColor': const Color(0xFF2F6B64),
-      'devisi': 'Teknisi\nDrone',
-      'jam_masuk': '—',
-      'jam_pulang': '—',
-      'total_jam': '—',
-      'status': 'belum',
-      'tanggal_lengkap': 'Jumat, 2 Oktober 2026',
-      'lokasi': 'Kantor Pusat — Jl. Sudirman No. 45',
-    },
-    {
-      'id': 5,
-      'nama': 'Apri\nUcup',
-      'rawNama': 'Apri Ucup',
-      'email': 'apri@mail.com',
-      'initials': 'AU',
-      'avatarColor': const Color(0xFF385C83),
-      'devisi': 'Admin',
-      'jam_masuk': '08:02',
-      'jam_pulang': '16:58',
-      'total_jam': '8 jam 56 menit',
-      'status': 'terlambat',
-      'tanggal_lengkap': 'Jumat, 2 Oktober 2026',
-      'lokasi': 'Kantor Pusat — Jl. Sudirman No. 45',
-      'lat_masuk': -6.949150,
-      'lng_masuk': 107.645010,
-    },
-    {
-      'id': 6,
-      'nama': 'Lilit\nRansink',
-      'rawNama': 'Lilit Ransink',
-      'email': 'lilit@mail.com',
-      'initials': 'AU',
-      'avatarColor': const Color(0xFF385C83),
-      'devisi': 'Teknisi\nDrone',
-      'jam_masuk': '—',
-      'jam_pulang': '—',
-      'total_jam': '—',
-      'status': 'belum',
-      'tanggal_lengkap': 'Jumat, 2 Oktober 2026',
-      'lokasi': 'Kantor Pusat — Jl. Sudirman No. 45',
-    },
-  ];
 
   @override
   void initState() {
@@ -578,8 +477,7 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
                         };
                       }).toList();
                     } else {
-                      // Data default persis sesuai mockup
-                      items = _mockAbsensi;
+                      items = [];
                     }
 
                     // Hitung jumlah masing-masing kategori
@@ -601,14 +499,6 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
                     int countCuti = items
                         .where((k) => (k['status'] ?? '') == 'cuti')
                         .length;
-
-                    // Nilai fallback persis seperti mockup gambar (18, 2, 3, 1)
-                    if (items == _mockAbsensi) {
-                      countHadir = 18;
-                      countTerlambat = 2;
-                      countBelum = 3;
-                      countCuti = 1;
-                    }
 
                     final displayedItems = _filterItems(items);
 

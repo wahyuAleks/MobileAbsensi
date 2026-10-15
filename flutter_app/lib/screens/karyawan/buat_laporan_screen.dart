@@ -74,6 +74,17 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
     return '';
   }
 
+  bool get _perluLuasArea {
+    final nama = _jenisKegiatanTerpilih.toLowerCase();
+    if (nama.contains('pemeliharaan') ||
+        nama.contains('maintenance') ||
+        nama.contains('perawatan') ||
+        nama.contains('servis')) {
+      return false;
+    }
+    return true;
+  }
+
   Map<String, dynamic>? get _lokasiTerpilih {
     for (final l in _lokasiList) {
       if (int.tryParse(l['id'].toString()) == _lokasiId) return l;
@@ -670,7 +681,7 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
       'jenis_kegiatan_id': _jenisKegiatanId?.toString() ?? '',
       'lokasi': _lokasiNamaTerpilih,
       'unit_drone': _unitDroneCtrl.text.trim(),
-      'luas_area': _luasAreaCtrl.text.trim(),
+      'luas_area': _perluLuasArea ? _luasAreaCtrl.text.trim() : '',
       'uraian_pekerjaan': uraian,
       'hasil': _hasilCtrl.text.trim(),
       'rencana_esok': _rencanaEsokCtrl.text.trim(),
@@ -725,10 +736,14 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
           uraianPekerjaan: data['uraian_pekerjaan'],
           hasil: data['hasil']!.isNotEmpty
               ? data['hasil']
-              : 'Penyemprotan 100% selesai. Tidak ada kendala signifikan.',
+              : (_perluLuasArea
+                  ? 'Penyemprotan 100% selesai. Tidak ada kendala signifikan.'
+                  : 'Pemeliharaan dan pengecekan unit drone selesai dengan baik.'),
           rencanaEsok: data['rencana_esok']!.isNotEmpty
               ? data['rencana_esok']
-              : 'Melanjutkan operasional sesuai rencana kerja tim.',
+              : (_perluLuasArea
+                  ? 'Melanjutkan operasional sesuai rencana kerja tim.'
+                  : 'Pengecekan berkala dan standby operasional.'),
           lampiranList: fotosBertag.isNotEmpty ? fotosBertag : null,
         );
       }
@@ -984,8 +999,14 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
                                 value == null ? 'Pilih jenis kegiatan' : null,
                             onChanged: _jenisKegiatanList.isEmpty
                                 ? null
-                                : (value) =>
-                                    setState(() => _jenisKegiatanId = value),
+                                : (value) {
+                                    setState(() {
+                                      _jenisKegiatanId = value;
+                                      if (!_perluLuasArea) {
+                                        _luasAreaCtrl.clear();
+                                      }
+                                    });
+                                  },
                           ),
                         const SizedBox(height: 16),
 
@@ -1030,43 +1051,58 @@ class _BuatLaporanScreenState extends State<BuatLaporanScreen> {
                           ),
                         const SizedBox(height: 16),
 
-                        // Unit Drone & Luas Area (2 kolom)
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 6,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _fieldLabel('Unit Drone'),
-                                  const SizedBox(height: 6),
-                                  TextFormField(
-                                    controller: _unitDroneCtrl,
-                                    decoration: _inputDeco(
-                                        'DA-001 (DJI Agras T40)',
-                                        compact: true),
-                                  ),
-                                ],
+                        // Unit Drone & Luas Area (kondisional berdasarkan jenis kegiatan)
+                        if (_perluLuasArea)
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 6,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _fieldLabel('Unit Drone'),
+                                    const SizedBox(height: 6),
+                                    TextFormField(
+                                      controller: _unitDroneCtrl,
+                                      decoration: _inputDeco(
+                                          'DA-001 (DJI Agras T40)',
+                                          compact: true),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              flex: 4,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _fieldLabel('Luas Area'),
-                                  const SizedBox(height: 6),
-                                  TextFormField(
-                                    controller: _luasAreaCtrl,
-                                    decoration:
-                                        _inputDeco('8 Ha', compact: true),
-                                  ),
-                                ],
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 4,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _fieldLabel('Luas Area'),
+                                    const SizedBox(height: 6),
+                                    TextFormField(
+                                      controller: _luasAreaCtrl,
+                                      decoration:
+                                          _inputDeco('8 Ha', compact: true),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          )
+                        else
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _fieldLabel('Unit Drone (yang dipelihara / diperiksa)'),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: _unitDroneCtrl,
+                                decoration: _inputDeco(
+                                    'DA-001 (DJI Agras T40)',
+                                    compact: true),
+                              ),
+                            ],
+                          ),
                         const SizedBox(height: 16),
 
                         // ── DOKUMENTASI KEGIATAN ──

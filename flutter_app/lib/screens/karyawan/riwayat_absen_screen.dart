@@ -40,103 +40,6 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
       'Semua'; // 'Semua', 'Menunggu', 'Disetujui', 'Ditolak'
   List<Map<String, dynamic>> _listCuti = [];
 
-  // Data demo fallback untuk absensi jika belum ada data server
-  final List<Map<String, dynamic>> _demoFallback = [
-    {
-      'id': 1,
-      'tanggal': '2026-08-18',
-      'tanggal_lengkap': 'Jumat, 18 Agustus 2026',
-      'hari': 'Jumat',
-      'tgl': '18',
-      'bulan': 'AGU',
-      'status': 'Hadir',
-      'jam_masuk': '07:30',
-      'jam_pulang': '17:05',
-      'total_jam': '9 jam 35 menit',
-      'lokasi': 'Kantor Pusat — Jl. Sudirman No. 45',
-    },
-    {
-      'id': 2,
-      'tanggal': '2026-08-17',
-      'tanggal_lengkap': 'Kamis, 17 Agustus 2026',
-      'hari': 'Kamis',
-      'tgl': '17',
-      'bulan': 'AGU',
-      'status': 'Hadir',
-      'jam_masuk': '08:00',
-      'jam_pulang': '17:00',
-      'total_jam': '9 jam',
-      'lokasi': 'Kantor Pusat — Jl. Sudirman No. 45',
-    },
-    {
-      'id': 3,
-      'tanggal': '2026-08-16',
-      'tanggal_lengkap': 'Rabu, 16 Agustus 2026',
-      'hari': 'Rabu',
-      'tgl': '16',
-      'bulan': 'AGU',
-      'status': 'Terlambat',
-      'jam_masuk': '09:15',
-      'jam_pulang': '17:00',
-      'total_jam': '7 jam 45 menit',
-      'lokasi': 'Kantor Pusat — Jl. Sudirman No. 45',
-    },
-    {
-      'id': 4,
-      'tanggal': '2026-08-15',
-      'tanggal_lengkap': 'Selasa, 15 Agustus 2026',
-      'hari': 'Selasa',
-      'tgl': '15',
-      'bulan': 'AGU',
-      'status': 'Izin Cuti',
-      'jam_masuk': '—',
-      'jam_pulang': '—',
-      'total_jam': '—',
-      'lokasi': 'Izin Dinas / Cuti Tahunan',
-    },
-    {
-      'id': 5,
-      'tanggal': '2026-08-14',
-      'tanggal_lengkap': 'Senin, 14 Agustus 2026',
-      'hari': 'Senin',
-      'tgl': '14',
-      'bulan': 'AGU',
-      'status': 'Hadir',
-      'jam_masuk': '07:55',
-      'jam_pulang': '17:20',
-      'total_jam': '9 jam 42 menit',
-      'lokasi': 'Kantor Pusat — Jl. Sudirman No. 45',
-    },
-  ];
-
-  // Data demo fallback untuk cuti jika server kosong
-  final List<Map<String, dynamic>> _demoCutiFallback = [
-    {
-      'id': 1,
-      'jenis_cuti': 'Cuti Tahunan',
-      'periode': '15 – 16 Agt 2026',
-      'durasi': '2 hari',
-      'status': 'Disetujui',
-      'alasan': 'Acara keluarga di luar kota',
-    },
-    {
-      'id': 2,
-      'jenis_cuti': 'Cuti Sakit',
-      'periode': '3 Jul 2026',
-      'durasi': '1 hari',
-      'status': 'Disetujui',
-      'alasan': 'Flu berat dan demam tinggi',
-    },
-    {
-      'id': 3,
-      'jenis_cuti': 'Cuti Tahunan',
-      'periode': '20 – 22 Jun 2026',
-      'durasi': '3 hari',
-      'status': 'Ditolak',
-      'alasan': 'Liburan akhir semester',
-      'alasan_tolak': 'Staf lapangan terlalu sedikit saat jadwal tersebut.',
-    },
-  ];
 
   @override
   void initState() {
@@ -260,13 +163,13 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
       }
 
       setState(() {
-        _listRiwayat = parsed.isNotEmpty ? parsed : _demoFallback;
+        _listRiwayat = parsed;
         _loading = false;
       });
     } catch (_) {
       if (mounted) {
         setState(() {
-          _listRiwayat = _demoFallback;
+          _listRiwayat = [];
           _loading = false;
         });
       }
@@ -304,13 +207,13 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
       }
 
       setState(() {
-        _listCuti = parsed.isNotEmpty ? parsed : _demoCutiFallback;
+        _listCuti = parsed;
         _loadingCuti = false;
       });
     } catch (_) {
       if (mounted) {
         setState(() {
-          _listCuti = _demoCutiFallback;
+          _listCuti = [];
           _loadingCuti = false;
         });
       }

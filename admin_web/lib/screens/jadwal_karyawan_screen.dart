@@ -4,6 +4,8 @@ import 'package:flutter_map_dragmarker/flutter_map_dragmarker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/api_service.dart';
+import 'detail_jadwal_lokasi_screen.dart';
+import 'components/karyawan_multi_picker.dart';
 
 String _formatRadiusKm(Object? radiusMeters) {
   final meters = double.tryParse(radiusMeters?.toString() ?? '');
@@ -111,31 +113,9 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
     _end = const TimeOfDay(hour: 17, minute: 0);
   }
 
-  void _edit(Map<String, dynamic> slot) {
-    final attendance = slot['absensi'];
-    if (attendance is List && attendance.isNotEmpty) {
-      _message('Slot tidak bisa diubah setelah absensi tercatat.');
-      return;
-    }
-    setState(() {
-      _editingId = int.tryParse(slot['id'].toString());
-      _employeeId = int.tryParse(slot['user_id'].toString());
-      _selectedEmployeeIds.clear();
-      if (_employeeId != null) _selectedEmployeeIds.add(_employeeId!);
-      _locationId = int.tryParse(slot['location_id'].toString());
-      _start = _parseTime(slot['jam_mulai']?.toString()) ?? _start;
-      _end = _parseTime(slot['jam_selesai']?.toString()) ?? _end;
-    });
-  }
 
-  TimeOfDay? _parseTime(String? raw) {
-    if (raw == null || raw.length < 5) return null;
-    final parts = raw.substring(0, 5).split(':');
-    final hour = int.tryParse(parts[0]);
-    final minute = int.tryParse(parts[1]);
-    if (hour == null || minute == null) return null;
-    return TimeOfDay(hour: hour, minute: minute);
-  }
+
+
 
   String _timeString(TimeOfDay value) =>
       '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
@@ -144,6 +124,10 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
     final selected = await showTimePicker(
       context: context,
       initialTime: start ? _start : _end,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
     );
     if (selected == null) return;
     setState(() {
@@ -208,41 +192,6 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
     }
   }
 
-  Future<void> _hapus(Map<String, dynamic> slot) async {
-    final attendance = slot['absensi'];
-    if (attendance is List && attendance.isNotEmpty) {
-      _message('Slot tidak bisa dihapus setelah absensi tercatat.');
-      return;
-    }
-    final user = slot['User'] is Map ? slot['User']['nama'] : 'karyawan';
-    final location =
-        slot['Location'] is Map ? slot['Location']['nama'] : 'lokasi';
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Hapus jadwal kerja?'),
-        content: Text('Jadwal $user di $location akan dihapus.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Hapus'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    try {
-      await ApiService.hapusJadwalKerja(int.parse(slot['id'].toString()));
-      await _muat();
-      if (mounted) _message('Jadwal kerja berhasil dihapus.');
-    } catch (e) {
-      if (mounted) _message('Gagal menghapus jadwal: $e');
-    }
-  }
 
   Future<void> _simpanLokasi([Map<String, dynamic>? location]) async {
     final values = await showDialog<Map<String, dynamic>>(
@@ -373,7 +322,24 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
     }
   }
 
-  List<Widget> _buildLocationGroups() {
+  void _bukaDetailLokasi(Map<String, dynamic> location) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DetailJadwalLokasiScreen(
+          location: location,
+          tanggal: _tanggal,
+          allEmployees: _employees,
+          onJadwalChanged: _muat,
+        ),
+      ),
+    );
+    if (mounted) {
+      await _muat();
+    }
+  }
+
+  Widget _buildLocationCards() {
     final Map<int, List<Map<String, dynamic>>> grouped = {};
     for (final slot in _slots) {
       final locationId = int.tryParse(slot['location_id']?.toString() ?? '');
@@ -392,77 +358,217 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
       return a.compareTo(b);
     });
 
-    final locationWidgets = <Widget>[];
-    for (final locationId in orderedIds) {
-      final location = _locations.firstWhere(
-        (item) => int.tryParse(item['id']?.toString() ?? '') == locationId,
-        orElse: () => {'id': locationId, 'nama': 'Lokasi tidak diketahui'},
-      );
-
-      final slotList = grouped[locationId] ?? const <Map<String, dynamic>>[];
-      final title = location['nama']?.toString() ?? 'Lokasi tidak diketahui';
-
-      locationWidgets.add(
-        Card(
-          elevation: 0,
-          margin: const EdgeInsets.only(bottom: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFFE5E7EB)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.location_on_outlined, color: Color(0xFF4F5BA8)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE9EAFE),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '${slotList.length} karyawan',
-                        style: const TextStyle(
-                          color: Color(0xFF4338CA),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (slotList.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4, bottom: 2),
-                    child: Text(
-                      'Belum ada karyawan yang dijadwalkan di lokasi ini.',
-                      style: TextStyle(color: Colors.grey[600]),
-                    ),
-                  )
-                else
-                  ...slotList.map(_buildSlot).toList(),
-              ],
+    if (orderedIds.isEmpty) {
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFFE5E7EB)),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.all(28),
+          child: Center(
+            child: Text(
+              'Belum ada lokasi kerja yang terdaftar. Tambahkan lokasi melalui tombol "Kelola lokasi".',
+              style: TextStyle(color: Color(0xFF6B7280)),
             ),
           ),
         ),
       );
     }
 
-    return locationWidgets;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 700;
+        final cardWidth = isWide ? (constraints.maxWidth - 16) / 2 : constraints.maxWidth;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.business_rounded,
+                  color: Color(0xFF4338CA),
+                  size: 22,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Daftar Lokasi Kerja',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  'Klik card lokasi untuk melihat daftar jadwal',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: orderedIds.map((locationId) {
+                final location = _locations.firstWhere(
+                  (item) => int.tryParse(item['id']?.toString() ?? '') == locationId,
+                  orElse: () => {'id': locationId, 'nama': 'Lokasi tidak diketahui'},
+                );
+                final slotList = grouped[locationId] ?? const <Map<String, dynamic>>[];
+                final title = location['nama']?.toString() ?? 'Lokasi tidak diketahui';
+                final hasGps = location['latitude'] != null && location['longitude'] != null;
+
+                return SizedBox(
+                  width: cardWidth,
+                  child: Card(
+                    elevation: 0,
+                    color: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: const BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () => _bukaDetailLokasi(location),
+                      hoverColor: const Color(0xFFF5F3FF),
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEEF2FF),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(
+                                    Icons.location_on_rounded,
+                                    color: Color(0xFF4338CA),
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        title,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF111827),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        hasGps
+                                            ? 'Radius: ${_formatRadiusKm(location['radius_meters'])}'
+                                            : 'GPS belum diatur',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: hasGps
+                                              ? const Color(0xFF6B7280)
+                                              : const Color(0xFFDC2626),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: slotList.isNotEmpty
+                                        ? const Color(0xFFE0E7FF)
+                                        : const Color(0xFFF3F4F6),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    '${slotList.length} karyawan',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: slotList.isNotEmpty
+                                          ? const Color(0xFF4338CA)
+                                          : const Color(0xFF6B7280),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Icon(
+                                  slotList.isNotEmpty
+                                      ? Icons.people_alt_outlined
+                                      : Icons.info_outline_rounded,
+                                  size: 16,
+                                  color: const Color(0xFF6B7280),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    slotList.isNotEmpty
+                                        ? '${slotList.length} karyawan terjadwal hari ini'
+                                        : 'Belum ada jadwal karyawan di lokasi ini',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF6B7280),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Lihat Jadwal',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF4338CA),
+                                      ),
+                                    ),
+                                    SizedBox(width: 4),
+                                    Icon(
+                                      Icons.arrow_forward_ios_rounded,
+                                      size: 12,
+                                      color: Color(0xFF4338CA),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -503,7 +609,7 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
               ),
               const SizedBox(height: 16),
               _buildForm(),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               if (_loading)
                 const Center(
                   child: Padding(
@@ -513,14 +619,8 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
                 )
               else if (_error != null)
                 _buildError()
-              else if (_slots.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(28),
-                  child: Center(
-                      child: Text('Belum ada jadwal untuk tanggal ini.')),
-                )
               else
-                ..._buildLocationGroups(),
+                _buildLocationCards(),
             ],
           ),
         ),
@@ -546,79 +646,19 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
               ),
               const SizedBox(height: 14),
               if (_editingId == null) ...[
-                Row(
-                  children: [
-                    Text(
-                      'Pilih Karyawan (${_selectedEmployeeIds.length} dipilih)',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                    ),
-                    const SizedBox(width: 12),
-                    TextButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _selectedEmployeeIds.clear();
-                          for (final e in _employees) {
-                            final id = int.tryParse(e['id'].toString());
-                            if (id != null) _selectedEmployeeIds.add(id);
-                          }
-                        });
-                      },
-                      icon: const Icon(Icons.select_all_rounded, size: 16),
-                      label: const Text('Pilih Semua'),
-                    ),
-                    const SizedBox(width: 8),
-                    if (_selectedEmployeeIds.isNotEmpty)
-                      TextButton.icon(
-                        onPressed: () {
-                          setState(() => _selectedEmployeeIds.clear());
-                        },
-                        icon: const Icon(Icons.clear_all_rounded, size: 16),
-                        label: const Text('Batal Semua'),
-                      ),
-                  ],
+                KaryawanMultiPicker(
+                  employees: _employees,
+                  selectedIds: _selectedEmployeeIds,
+                  onChanged: (updated) {
+                    setState(() {
+                      _selectedEmployeeIds
+                        ..clear()
+                        ..addAll(updated);
+                    });
+                  },
+                  maxHeight: 250,
                 ),
-                const SizedBox(height: 8),
-                Container(
-                  constraints: const BoxConstraints(maxHeight: 180),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                  ),
-                  child: SingleChildScrollView(
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _employees.map((employee) {
-                        final id = int.tryParse(employee['id'].toString());
-                        if (id == null) return const SizedBox.shrink();
-                        final isSelected = _selectedEmployeeIds.contains(id);
-                        final nama = (employee['nama'] ?? 'Karyawan').toString();
-                        return FilterChip(
-                          selected: isSelected,
-                          showCheckmark: true,
-                          label: Text(nama),
-                          selectedColor: const Color(0xFFE0E7FF),
-                          labelStyle: TextStyle(
-                            color: isSelected ? const Color(0xFF4338CA) : const Color(0xFF374151),
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          ),
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _selectedEmployeeIds.add(id);
-                              } else {
-                                _selectedEmployeeIds.remove(id);
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
               ],
               Wrap(
                 spacing: 14,
@@ -714,51 +754,7 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
         ),
       );
 
-  Widget _buildSlot(Map<String, dynamic> slot) {
-    final user = slot['User'] is Map ? slot['User'] as Map : const {};
-    final location =
-        slot['Location'] is Map ? slot['Location'] as Map : const {};
-    final attendance = slot['absensi'];
-    final locked = attendance is List && attendance.isNotEmpty;
-    final start = slot['jam_mulai']?.toString() ?? '--:--';
-    final end = slot['jam_selesai']?.toString() ?? '--:--';
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
-      ),
-      child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: Color(0xFFE9EAFE),
-          child: Icon(Icons.schedule_rounded, color: Color(0xFF4F5BA8)),
-        ),
-        title: Text(
-          user['nama']?.toString() ?? 'Karyawan',
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text(
-          '${location['nama'] ?? 'Lokasi'} • ${start.substring(0, 5)}–${end.substring(0, 5)}'
-          '${locked ? ' • Absensi tercatat' : ''}',
-        ),
-        trailing: Wrap(
-          children: [
-            IconButton(
-              tooltip: locked ? 'Absensi sudah tercatat' : 'Ubah',
-              onPressed: locked ? null : () => _edit(slot),
-              icon: const Icon(Icons.edit_outlined),
-            ),
-            IconButton(
-              tooltip: locked ? 'Absensi sudah tercatat' : 'Hapus',
-              onPressed: locked ? null : () => _hapus(slot),
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildError() => Column(
         children: [

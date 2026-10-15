@@ -344,15 +344,6 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
               Row(
                 children: [
                   IconButton(
-                    tooltip: 'Buka menu',
-                    onPressed: widget.onOpenDrawer,
-                    icon: const Icon(Icons.menu_rounded),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  IconButton(
                     tooltip: 'Kembali ke halaman sebelumnya',
                     onPressed: widget.onBack,
                     icon: const Icon(Icons.arrow_back_rounded),
@@ -367,6 +358,11 @@ class _JadwalKaryawanScreenState extends State<JadwalKaryawanScreen> {
                       style:
                           TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
+                  ),
+                  IconButton(
+                    tooltip: 'Buka menu',
+                    onPressed: widget.onOpenDrawer,
+                    icon: const Icon(Icons.menu_rounded),
                   ),
                 ],
               ),
@@ -577,6 +573,10 @@ class _JadwalDialogState extends State<_JadwalDialog> {
     final value = await showTimePicker(
       context: context,
       initialTime: start ? _start : _end,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
     );
     if (value == null) return;
     setState(() {

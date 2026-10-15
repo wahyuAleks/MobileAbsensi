@@ -12,9 +12,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailCtrl = TextEditingController(text: 'admin@mail.com');
-  final _passCtrl = TextEditingController(text: 'admin123');
-  final _serverUrlCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
 
   bool _loading = false;
   bool _hidePass = true;
@@ -28,14 +27,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _initUrl() async {
     await AppConstants.initBaseUrl();
-    _serverUrlCtrl.text = AppConstants.baseUrl;
   }
 
   @override
   void dispose() {
     _emailCtrl.dispose();
     _passCtrl.dispose();
-    _serverUrlCtrl.dispose();
     super.dispose();
   }
 
@@ -75,65 +72,6 @@ class _LoginScreenState extends State<LoginScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  void _showServerSettings() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Pengaturan URL Server API'),
-        content: SizedBox(
-          width: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _serverUrlCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Base URL API',
-                  border: OutlineInputBorder(),
-                  hintText: 'http://localhost:3000/api',
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: [
-                  ActionChip(
-                    label: const Text('localhost:3000'),
-                    onPressed: () =>
-                        _serverUrlCtrl.text = AppConstants.urlLocalhost,
-                  ),
-                  ActionChip(
-                    label: const Text('127.0.0.1:3000'),
-                    onPressed: () =>
-                        _serverUrlCtrl.text = AppConstants.urlIpLocal,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              await AppConstants.setBaseUrl(_serverUrlCtrl.text);
-              if (mounted) Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content:
-                        Text('URL Server disimpan: ${AppConstants.baseUrl}')),
-              );
-            },
-            child: const Text('Simpan'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -306,19 +244,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: Colors.white,
                               fontSize: 15,
                               fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(height: 20),
-
-                // Server URL Settings Button
-                Center(
-                  child: TextButton.icon(
-                    onPressed: _showServerSettings,
-                    icon: const Icon(Icons.dns_rounded,
-                        size: 18, color: Color(0xFF6B7280)),
-                    label: const Text('Pengaturan Server URL',
-                        style:
-                            TextStyle(color: Color(0xFF6B7280), fontSize: 13)),
-                  ),
                 ),
               ],
             ),

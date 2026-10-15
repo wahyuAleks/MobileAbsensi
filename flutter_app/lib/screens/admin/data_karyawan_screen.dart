@@ -31,49 +31,6 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
   late Future<List<dynamic>> _future;
   String _query = '';
 
-  // Data default persis sesuai mockup gambar jika database kosong/awal
-  final List<Map<String, dynamic>> _mockKaryawan = [
-    {
-      'id': 1,
-      'nip': 'DA-2024-001',
-      'nama': 'Lilit\nRansink',
-      'email': 'lilit@gmail.\ncom',
-      'jabatan': 'Staff Operasional',
-      'color': const Color(0xFF2F6B64), // Teal Green
-    },
-    {
-      'id': 2,
-      'nip': 'DA-2024-001',
-      'nama': 'Ransink\nLilit',
-      'email': 'ransink@gmail.\ncom',
-      'jabatan': 'Staff Marketing',
-      'color': const Color(0xFF385C83), // Slate Blue
-    },
-    {
-      'id': 3,
-      'nip': 'DA-2024-001',
-      'nama': 'Udin\nKomarudin',
-      'email': 'udin@gmail.\ncom',
-      'jabatan': 'Staff IT',
-      'color': const Color(0xFF2F6B64), // Teal Green
-    },
-    {
-      'id': 4,
-      'nip': 'DA-2024-001',
-      'nama': 'Alak\nBizher',
-      'email': 'alak@gmail.\ncom',
-      'jabatan': 'Staff HRD',
-      'color': const Color(0xFF385C83), // Slate Blue
-    },
-    {
-      'id': 5,
-      'nip': 'DA-2024-001',
-      'nama': 'Mommy\nJenner',
-      'email': 'mommy@gmail.\ncom',
-      'jabatan': 'Finance',
-      'color': const Color(0xFF2F6B64), // Teal Green
-    },
-  ];
 
   @override
   void initState() {
@@ -422,8 +379,8 @@ class _DataKaryawanScreenState extends State<DataKaryawanScreen> {
                         };
                       }).toList();
                     } else {
-                      // Gunakan data mockup yang persis dengan yang dikirim user
-                      items = _mockKaryawan;
+                      // Database kosong – tampilkan empty state
+                      items = [];
                     }
 
                     // Filter pencarian

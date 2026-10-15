@@ -29,49 +29,6 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
   late Future<List<dynamic>> _future;
   String _activeFilter = 'semua'; // 'semua', 'menunggu', 'disetujui', 'ditolak'
 
-  // Data default persis sesuai mockup gambar yang dikirimkan user (ditandai isMock: true)
-  final List<Map<String, dynamic>> _mockCuti = [
-    {
-      'id': -1,
-      'isMock': true,
-      'nama': 'Mommy Jenner',
-      'initials': 'MJ',
-      'avatarColor': const Color(0xFF385C83),
-      'tipe': 'Cuti Tahunan',
-      'durasi': '2 Hari',
-      'periode': '25 - 26 Agustus 2026',
-      'alasan': 'Ada urusan keluarga',
-      'status': 'disetujui',
-      'alasan_penolakan': null,
-    },
-    {
-      'id': -2,
-      'isMock': true,
-      'nama': 'Alak Bizher',
-      'initials': 'AB',
-      'avatarColor': const Color(0xFF385C83),
-      'tipe': 'Cuti Sakit',
-      'durasi': '1 Hari',
-      'periode': '28 Agustus 2026',
-      'alasan': 'Sakit flu dengan surat\ndokter',
-      'status': 'menunggu',
-      'alasan_penolakan': null,
-    },
-    {
-      'id': -3,
-      'isMock': true,
-      'nama': 'Alak Bizher',
-      'initials': 'AB',
-      'avatarColor': const Color(0xFF385C83),
-      'tipe': 'Cuti Sakit',
-      'durasi': '1 Hari',
-      'periode': '28 Agustus 2026',
-      'alasan': 'Sakit flu dengan surat\ndokter',
-      'status': 'ditolak',
-      'alasan_penolakan':
-          'Ditolak: Staf terlalu sedikit saya periode tersebut.',
-    },
-  ];
 
   @override
   void initState() {
@@ -128,14 +85,7 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
     if (konfirmasi != true) return;
 
     try {
-      if (item['isMock'] == true) {
-        setState(() {
-          final idx = _mockCuti.indexWhere((x) => x['id'] == item['id']);
-          if (idx != -1) {
-            _mockCuti[idx]['status'] = 'disetujui';
-          }
-        });
-      } else if (item['id'] != null) {
+      if (item['id'] != null) {
         final id = int.tryParse(item['id'].toString());
         if (id != null) {
           await ApiService.prosesCuti(id, 'diterima');
@@ -171,15 +121,7 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
     if (alasan == null || alasan.trim().isEmpty) return;
 
     try {
-      if (item['isMock'] == true) {
-        setState(() {
-          final idx = _mockCuti.indexWhere((x) => x['id'] == item['id']);
-          if (idx != -1) {
-            _mockCuti[idx]['status'] = 'ditolak';
-            _mockCuti[idx]['alasan_penolakan'] = 'Ditolak: ${alasan.trim()}';
-          }
-        });
-      } else if (item['id'] != null) {
+      if (item['id'] != null) {
         final id = int.tryParse(item['id'].toString());
         if (id != null) {
           await ApiService.prosesCuti(id, 'ditolak', catatan: alasan.trim());
@@ -505,7 +447,7 @@ class _PersetujuanCutiScreenState extends State<PersetujuanCutiScreen> {
                         };
                       }).toList();
                     } else {
-                      items = _mockCuti;
+                      items = [];
                     }
 
                     final countMenunggu =
