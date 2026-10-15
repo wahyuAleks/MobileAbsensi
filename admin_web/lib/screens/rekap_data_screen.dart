@@ -1,8 +1,8 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-
 import '../core/api_service.dart';
+import 'dart:math';
 
 class RekapDataScreen extends StatefulWidget {
   final bool showAppBar;
