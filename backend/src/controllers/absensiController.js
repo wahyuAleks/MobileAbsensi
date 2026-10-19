@@ -5,6 +5,7 @@ const WorkAssignment = require('../models/WorkAssignment');
 const Location = require('../models/Location');
 const { isDalamRadiusLokasi, validCoordinatePair } = require('../utils/geo');
 const { canCheckIn, canCheckOut, checkInWindow, isLate } = require('../utils/attendanceRules');
+const notifikasiController = require('./notifikasiController');
 
 function waktuWib() {
   const parts = new Intl.DateTimeFormat('en-GB', {
@@ -114,6 +115,37 @@ exports.absenMasuk = async (req, res) => {
     data.status = status;
     await data.save();
 
+    try {
+      const user = await User.findByPk(req.user.id);
+      const namaUser = user ? user.nama : 'Karyawan';
+      const locName = assignment.Location ? assignment.Location.nama : 'lokasi kerja';
+
+      // Notif untuk karyawan
+      await notifikasiController.buatNotifikasi({
+        user_id: req.user.id,
+        tipe: 'absen',
+        judul: status === 'telat' ? 'Absen Masuk (Terlambat)' : 'Absen Masuk Berhasil',
+        pesan: `Absen masuk tercatat pukul ${jam.slice(0, 5)} WIB (${status === 'telat' ? 'Terlambat' : 'Tepat Waktu'}) di ${locName}.`,
+        cta_text: 'Lihat Detail Absensi →',
+        data: { absensi_id: data.id },
+      });
+
+      // Notif untuk semua admin
+      const admins = await User.findAll({ where: { role: 'admin' } });
+      for (const admin of admins) {
+        await notifikasiController.buatNotifikasi({
+          user_id: admin.id,
+          tipe: 'absen',
+          judul: status === 'telat' ? 'Karyawan Terlambat Masuk' : 'Aktivitas Absen Masuk',
+          pesan: `${namaUser} telah absen masuk pukul ${jam.slice(0, 5)} WIB (${status === 'telat' ? 'Terlambat' : 'Tepat Waktu'}) di ${locName}.`,
+          cta_text: 'Buka Monitoring Absensi →',
+          data: { user_id: req.user.id, tabIndex: 2 },
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Gagal membuat notifikasi absen masuk:', notifErr.message);
+    }
+
     res.json({
       message: 'Absen masuk berhasil',
       data,
@@ -167,6 +199,36 @@ exports.absenPulang = async (req, res) => {
     data.lat_pulang = lat;
     data.lng_pulang = lng;
     await data.save();
+
+    try {
+      const user = await User.findByPk(req.user.id);
+      const namaUser = user ? user.nama : 'Karyawan';
+
+      // Notif untuk karyawan
+      await notifikasiController.buatNotifikasi({
+        user_id: req.user.id,
+        tipe: 'absen',
+        judul: 'Absen Pulang Berhasil',
+        pesan: `Absen pulang tercatat pukul ${data.jam_pulang.slice(0, 5)} WIB. Terima kasih atas kerja keras Anda hari ini!`,
+        cta_text: 'Lihat Detail Absensi →',
+        data: { absensi_id: data.id },
+      });
+
+      // Notif untuk semua admin
+      const admins = await User.findAll({ where: { role: 'admin' } });
+      for (const admin of admins) {
+        await notifikasiController.buatNotifikasi({
+          user_id: admin.id,
+          tipe: 'absen',
+          judul: 'Aktivitas Absen Pulang',
+          pesan: `${namaUser} telah absen pulang pukul ${data.jam_pulang.slice(0, 5)} WIB.`,
+          cta_text: 'Buka Monitoring Absensi →',
+          data: { user_id: req.user.id, tabIndex: 2 },
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Gagal membuat notifikasi absen pulang:', notifErr.message);
+    }
 
     res.json({ message: 'Absen pulang berhasil', data });
   } catch (err) {

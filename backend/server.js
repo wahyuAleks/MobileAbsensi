@@ -238,6 +238,51 @@ async function syncExistingCutiNotifications() {
   }
 }
 
+async function syncExistingLaporanNotifications() {
+  try {
+    const Laporan = require('./src/models/Laporan');
+    const Notifikasi = require('./src/models/Notifikasi');
+    const User = require('./src/models/User');
+    const listLaporan = await Laporan.findAll({
+      where: { status: 'Terkirim' },
+      include: [{ model: User, attributes: ['id', 'nama'] }],
+      order: [['id', 'DESC']],
+      limit: 20,
+    });
+    const admins = await User.findAll({ where: { role: 'admin' } });
+
+    for (const lap of listLaporan) {
+      const nama = lap.User ? lap.User.nama : 'Karyawan';
+      const judul = 'Laporan Kegiatan Baru';
+      const pesan = `${nama} telah mengirim laporan: "${lap.judul}" (${lap.lokasi || lap.jenis_kegiatan || lap.tanggal}).`;
+
+      for (const admin of admins) {
+        const existing = await Notifikasi.findOne({
+          where: {
+            user_id: admin.id,
+            tipe: 'laporan',
+            judul,
+            pesan,
+          },
+        });
+        if (!existing) {
+          await Notifikasi.create({
+            user_id: admin.id,
+            tipe: 'laporan',
+            judul,
+            pesan,
+            cta_text: 'Tinjau Rekap Laporan →',
+            data: JSON.stringify({ laporan_id: lap.id, tabIndex: 5 }),
+            is_read: false,
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Gagal sync notifikasi laporan:', err.message);
+  }
+}
+
 async function ensureAttendanceScheduleColumns() {
   const queryInterface = sequelize.getQueryInterface();
   const locations = await queryInterface.describeTable('locations');
@@ -441,6 +486,7 @@ async function startServer() {
     await seedDefaultLocations();
     await seedDefaultUsers();
     await syncExistingCutiNotifications();
+    await syncExistingLaporanNotifications();
     initializeRealtime(server);
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`✓ Server jalan di port ${PORT} (http://0.0.0.0:${PORT})`);

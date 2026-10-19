@@ -27,6 +27,8 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
   late Future<List<dynamic>> _future;
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
+  String _selectedProject = 'Semua Project';
+  String _selectedLokasi = 'Semua Lokasi';
 
   @override
   void initState() {
@@ -344,6 +346,17 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
                       };
                     }).toList();
 
+                    final Set<String> projectSet = {'Semua Project'};
+                    final Set<String> lokasiSet = {'Semua Lokasi'};
+                    for (final item in items) {
+                      final p = (item['jenis_kegiatan'] ?? '').toString().trim();
+                      if (p.isNotEmpty) projectSet.add(p);
+                      final l = (item['lokasi'] ?? '').toString().trim();
+                      if (l.isNotEmpty) lokasiSet.add(l);
+                    }
+                    final projectList = projectSet.toList();
+                    final lokasiList = lokasiSet.toList();
+
                     final totalLaporan = items.length;
                     final totalKaryawan = items
                         .map((item) =>
@@ -352,6 +365,14 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
                         .length;
 
                     final filtered = items.where((k) {
+                      if (_selectedProject != 'Semua Project') {
+                        final p = (k['jenis_kegiatan'] ?? '').toString().toLowerCase();
+                        if (!p.contains(_selectedProject.toLowerCase())) return false;
+                      }
+                      if (_selectedLokasi != 'Semua Lokasi') {
+                        final l = (k['lokasi'] ?? '').toString().toLowerCase();
+                        if (!l.contains(_selectedLokasi.toLowerCase())) return false;
+                      }
                       if (_query.isEmpty) return true;
                       final nama = (k['nama'] ?? '').toString().toLowerCase();
                       final judul = (k['judul'] ?? '').toString().toLowerCase();
@@ -361,9 +382,130 @@ class _RekapLaporanScreenState extends State<RekapLaporanScreen> {
                           isi.contains(_query);
                     }).toList();
 
+                    final isFiltered = _selectedProject != 'Semua Project' ||
+                        _selectedLokasi != 'Semua Lokasi' ||
+                        _query.isNotEmpty;
+
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Filter Bar Dropdown (Per Project & Per Lokasi)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  // Filter Project
+                                  Expanded(
+                                    child: Container(
+                                      height: 38,
+                                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                                      decoration: BoxDecoration(
+                                        color: _selectedProject != 'Semua Project'
+                                            ? const Color(0xFFE8F5E9)
+                                            : Colors.white,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: _selectedProject != 'Semua Project'
+                                              ? const Color(0xFF2E7D32)
+                                              : const Color(0xFFD1D5DB),
+                                        ),
+                                      ),
+                                      child: DropdownButtonHideUnderline(
+                                        child: DropdownButton<String>(
+                                          value: projectList.contains(_selectedProject)
+                                              ? _selectedProject
+                                              : 'Semua Project',
+                                          isDense: true,
+                                          isExpanded: true,
+                                          icon: const Icon(Icons.arrow_drop_down, size: 20),
+                                          style: const TextStyle(fontSize: 12, color: Color(0xFF1F2937)),
+                                          items: projectList.map((p) => DropdownMenuItem(
+                                            value: p,
+                                            child: Text(p, overflow: TextOverflow.ellipsis),
+                                          )).toList(),
+                                          onChanged: (val) {
+                                            if (val != null) setState(() => _selectedProject = val);
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Filter Lokasi
+                                  Expanded(
+                                    child: Container(
+                                      height: 38,
+                                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                                      decoration: BoxDecoration(
+                                        color: _selectedLokasi != 'Semua Lokasi'
+                                            ? const Color(0xFFFFF7ED)
+                                            : Colors.white,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: _selectedLokasi != 'Semua Lokasi'
+                                              ? const Color(0xFFEA580C)
+                                              : const Color(0xFFD1D5DB),
+                                        ),
+                                      ),
+                                      child: DropdownButtonHideUnderline(
+                                        child: DropdownButton<String>(
+                                          value: lokasiList.contains(_selectedLokasi)
+                                              ? _selectedLokasi
+                                              : 'Semua Lokasi',
+                                          isDense: true,
+                                          isExpanded: true,
+                                          icon: const Icon(Icons.arrow_drop_down, size: 20),
+                                          style: const TextStyle(fontSize: 12, color: Color(0xFF1F2937)),
+                                          items: lokasiList.map((l) => DropdownMenuItem(
+                                            value: l,
+                                            child: Text(l, overflow: TextOverflow.ellipsis),
+                                          )).toList(),
+                                          onChanged: (val) {
+                                            if (val != null) setState(() => _selectedLokasi = val);
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (isFiltered) ...[
+                                    const SizedBox(width: 6),
+                                    IconButton(
+                                      icon: const Icon(Icons.refresh_rounded, size: 20, color: Color(0xFFDC2626)),
+                                      tooltip: 'Reset filter',
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: () {
+                                        setState(() {
+                                          _selectedProject = 'Semua Project';
+                                          _selectedLokasi = 'Semua Lokasi';
+                                          _searchCtrl.clear();
+                                          _query = '';
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              if (isFiltered)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    'Ditemukan ${filtered.length} dari $totalLaporan laporan',
+                                    style: const TextStyle(fontSize: 11, color: Color(0xFF4B5563), fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                         // Kartu 1: Laporan Masuk
                         Container(
                           width: double.infinity,

@@ -152,14 +152,44 @@ class ApiService {
   }
 
   // ---------- LAPORAN ----------
-  static Future<List<dynamic>> rekapLaporan() async {
+  static Future<List<dynamic>> rekapLaporan({String? lokasi, String? project}) async {
+    final queryParams = <String, String>{};
+    if (lokasi != null &&
+        lokasi.isNotEmpty &&
+        !['semua', 'all', 'semua lokasi', 'semua proyek'].contains(lokasi.toLowerCase())) {
+      queryParams['lokasi'] = lokasi;
+    }
+    if (project != null &&
+        project.isNotEmpty &&
+        !['semua', 'all', 'semua project', 'semua proyek'].contains(project.toLowerCase())) {
+      queryParams['project'] = project;
+    }
+    final uri = Uri.parse('${AppConstants.baseUrl}/laporan/rekap')
+        .replace(queryParameters: queryParams.isEmpty ? null : queryParams);
     final res = await http
         .get(
-          Uri.parse('${AppConstants.baseUrl}/laporan/rekap'),
+          uri,
           headers: await _headers(),
         )
         .timeout(const Duration(seconds: 15));
     return _handleList(res);
+  }
+
+  static String getExportExcelUrl({String? lokasi, String? project}) {
+    final queryParams = <String, String>{};
+    if (lokasi != null &&
+        lokasi.isNotEmpty &&
+        !['semua', 'all', 'semua lokasi', 'semua proyek'].contains(lokasi.toLowerCase())) {
+      queryParams['lokasi'] = lokasi;
+    }
+    if (project != null &&
+        project.isNotEmpty &&
+        !['semua', 'all', 'semua project', 'semua proyek'].contains(project.toLowerCase())) {
+      queryParams['project'] = project;
+    }
+    final uri = Uri.parse('${AppConstants.baseUrl}/laporan/export-excel')
+        .replace(queryParameters: queryParams.isEmpty ? null : queryParams);
+    return uri.toString();
   }
 
   static Future<Map<String, dynamic>> editLaporanAdmin(

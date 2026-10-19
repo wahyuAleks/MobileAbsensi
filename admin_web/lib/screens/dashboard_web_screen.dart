@@ -96,6 +96,8 @@ class _DashboardWebScreenState extends State<DashboardWebScreen>
       jumlahBelumAbsen: 5,
       jumlahTerlambat: 2,
       onTapCuti: () => _pindahTab(4),
+      onTapLaporan: () => _pindahTab(5),
+      onTapAbsen: () => _pindahTab(2),
       onTapBelumAbsen: () => _pindahTab(2),
       onTapTerlambat: () => _pindahTab(2),
     );

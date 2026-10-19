@@ -12,5 +12,6 @@ router.put('/:id/admin-edit', verifyToken, isAdmin, uploadLaporan.any(), laporan
 router.put('/:id', verifyToken, uploadLaporan.any(), laporanController.updateDraft);
 router.put('/:id/kirim', verifyToken, uploadLaporan.any(), laporanController.kirimDraft);
 router.get('/rekap', verifyToken, isAdmin, laporanController.rekapLaporan);
+router.get('/export-excel', verifyToken, isAdmin, laporanController.exportExcel);
 
 module.exports = router;

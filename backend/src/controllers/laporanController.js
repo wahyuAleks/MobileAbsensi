@@ -2,6 +2,7 @@ const Laporan = require('../models/Laporan');
 const User = require('../models/User');
 const { Op } = require('sequelize');
 const jenisKegiatanController = require('./jenisKegiatanController');
+const notifikasiController = require('./notifikasiController');
 
 function getLampiranPaths(req, existingLampiran = null) {
   const files = req.files || (req.file ? [req.file] : []);
@@ -73,6 +74,35 @@ exports.submitLaporan = async (req, res) => {
       status: reportStatus === 'draft' ? 'Draft' : 'Terkirim',
       lampiran: getLampiranPaths(req, null),
     });
+
+    if (reportStatus === 'terkirim') {
+      try {
+        await notifikasiController.buatNotifikasi({
+          user_id: req.user.id,
+          tipe: 'laporan',
+          judul: 'Laporan Berhasil Terkirim',
+          pesan: `Laporan "${laporan.judul}" (${tanggal}) berhasil dikirim ke admin.`,
+          cta_text: 'Lihat Laporan →',
+          data: { laporan_id: laporan.id, status: 'Terkirim' },
+        });
+
+        const admins = await User.findAll({ where: { role: 'admin' } });
+        const pemohon = await User.findByPk(req.user.id);
+        const namaUser = pemohon ? pemohon.nama : 'Karyawan';
+        for (const admin of admins) {
+          await notifikasiController.buatNotifikasi({
+            user_id: admin.id,
+            tipe: 'laporan',
+            judul: 'Laporan Kegiatan Baru',
+            pesan: `${namaUser} telah mengirim laporan: "${laporan.judul}" (${lokasi || resolvedType.value.nama || tanggal}).`,
+            cta_text: 'Tinjau Rekap Laporan →',
+            data: { laporan_id: laporan.id, tabIndex: 5 },
+          });
+        }
+      } catch (notifErr) {
+        console.warn('Gagal membuat notifikasi submit laporan:', notifErr.message);
+      }
+    }
 
     res.status(201).json({
       message: reportStatus === 'draft' ? 'Draft laporan berhasil disimpan' : 'Laporan berhasil dikirim',
@@ -218,6 +248,33 @@ exports.kirimDraft = async (req, res) => {
       status: 'Terkirim',
     });
 
+    try {
+      await notifikasiController.buatNotifikasi({
+        user_id: req.user.id,
+        tipe: 'laporan',
+        judul: 'Laporan Berhasil Terkirim',
+        pesan: `Draft laporan "${title}" (${tanggal}) berhasil dikirim ke admin.`,
+        cta_text: 'Lihat Laporan →',
+        data: { laporan_id: laporan.id, status: 'Terkirim' },
+      });
+
+      const admins = await User.findAll({ where: { role: 'admin' } });
+      const pemohon = await User.findByPk(req.user.id);
+      const namaUser = pemohon ? pemohon.nama : 'Karyawan';
+      for (const admin of admins) {
+        await notifikasiController.buatNotifikasi({
+          user_id: admin.id,
+          tipe: 'laporan',
+          judul: 'Laporan Kegiatan Baru',
+          pesan: `${namaUser} telah mengirim laporan: "${title}" (${laporan.lokasi || resolvedType.value?.nama || tanggal}).`,
+          cta_text: 'Tinjau Rekap Laporan →',
+          data: { laporan_id: laporan.id, tabIndex: 5 },
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Gagal membuat notifikasi kirim draft:', notifErr.message);
+    }
+
     res.json({ message: 'Laporan berhasil dikirim', data: laporan });
   } catch (err) {
     res.status(500).json({ message: 'Terjadi kesalahan server', error: err.message });
@@ -315,6 +372,8 @@ exports.rekapLaporan = async (req, res) => {
       tanggal_end: tanggalEnd,
       user_id: userId,
       lokasi,
+      project,
+      jenis_kegiatan,
     } = req.query;
     const where = {};
 
@@ -333,6 +392,16 @@ exports.rekapLaporan = async (req, res) => {
       !['semua', 'all', 'semua proyek', 'semua lokasi'].includes(lokasi.trim().toLowerCase())
     ) {
       where.lokasi = { [Op.like]: `%${lokasi.trim()}%` };
+    }
+
+    const projectFilter = project || jenis_kegiatan;
+    if (
+      projectFilter &&
+      typeof projectFilter === 'string' &&
+      projectFilter.trim() !== '' &&
+      !['semua', 'all', 'semua project', 'semua proyek'].includes(projectFilter.trim().toLowerCase())
+    ) {
+      where.jenis_kegiatan = { [Op.like]: `%${projectFilter.trim()}%` };
     }
 
     if (tanggalStart || tanggalEnd) {
@@ -367,6 +436,170 @@ exports.rekapLaporan = async (req, res) => {
     res.json(data);
   } catch (err) {
     res.status(500).json({ message: 'Terjadi kesalahan server', error: err.message });
+  }
+};
+
+// EXPORT REKAP LAPORAN KE EXCEL (.xls HTML table)
+exports.exportExcel = async (req, res) => {
+  try {
+    const {
+      tanggal,
+      tanggal_start: tanggalStart,
+      tanggal_end: tanggalEnd,
+      user_id: userId,
+      lokasi,
+      project,
+      jenis_kegiatan,
+    } = req.query;
+    const where = {};
+
+    if (userId !== undefined && userId !== '' && userId !== '-1') {
+      const parsedUserId = Number(userId);
+      if (Number.isSafeInteger(parsedUserId) && parsedUserId > 0) {
+        where.user_id = parsedUserId;
+      }
+    }
+
+    if (
+      lokasi &&
+      typeof lokasi === 'string' &&
+      lokasi.trim() !== '' &&
+      !['semua', 'all', 'semua proyek', 'semua lokasi'].includes(lokasi.trim().toLowerCase())
+    ) {
+      where.lokasi = { [Op.like]: `%${lokasi.trim()}%` };
+    }
+
+    const projectFilter = project || jenis_kegiatan;
+    if (
+      projectFilter &&
+      typeof projectFilter === 'string' &&
+      projectFilter.trim() !== '' &&
+      !['semua', 'all', 'semua project', 'semua proyek'].includes(projectFilter.trim().toLowerCase())
+    ) {
+      where.jenis_kegiatan = { [Op.like]: `%${projectFilter.trim()}%` };
+    }
+
+    if (tanggalStart && tanggalEnd && isValidDate(tanggalStart) && isValidDate(tanggalEnd)) {
+      where.tanggal = { [Op.between]: [tanggalStart, tanggalEnd] };
+    } else if (tanggal && isValidDate(tanggal)) {
+      where.tanggal = tanggal;
+    }
+
+    const data = await Laporan.findAll({
+      where,
+      include: [{ model: User, attributes: ['id', 'nama', 'jabatan'] }],
+      order: [['tanggal', 'DESC']],
+    });
+
+    const escapeXml = (unsafe) => {
+      if (unsafe == null) return '';
+      return String(unsafe)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    };
+
+    let rowsHtml = '';
+    data.forEach((item, index) => {
+      const nama = item.User ? item.User.nama : 'Karyawan';
+      const jabatan = item.User ? item.User.jabatan || '-' : '-';
+      let fotoInfo = '-';
+      if (item.lampiran) {
+        try {
+          const parsed = JSON.parse(item.lampiran);
+          fotoInfo = Array.isArray(parsed) ? `${parsed.length} foto` : '1 foto';
+        } catch (_) {
+          fotoInfo = '1 foto';
+        }
+      }
+      rowsHtml += `
+      <tr>
+        <td style="text-align:center;">${index + 1}</td>
+        <td style="text-align:center;">${escapeXml(item.tanggal)}</td>
+        <td>${escapeXml(nama)}</td>
+        <td>${escapeXml(jabatan)}</td>
+        <td>${escapeXml(item.jenis_kegiatan || '-')}</td>
+        <td>${escapeXml(item.lokasi || '-')}</td>
+        <td>${escapeXml(item.unit_drone || '-')}</td>
+        <td style="text-align:center;">${escapeXml(item.luas_area || '-')}</td>
+        <td><b>${escapeXml(item.judul)}</b></td>
+        <td>${escapeXml(item.uraian_pekerjaan || item.isi_laporan || '-')}</td>
+        <td>${escapeXml(item.hasil || '-')}</td>
+        <td>${escapeXml(item.rencana_esok || '-')}</td>
+        <td style="text-align:center;">${escapeXml(item.status || 'Terkirim')}</td>
+        <td style="text-align:center;">${fotoInfo}</td>
+      </tr>`;
+    });
+
+    const html = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office"
+          xmlns:x="urn:schemas-microsoft-com:office:excel"
+          xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+      <!--[if gte mso 9]>
+      <xml>
+        <x:ExcelWorkbook>
+          <x:ExcelWorksheets>
+            <x:ExcelWorksheet>
+              <x:Name>Rekap Laporan</x:Name>
+              <x:WorksheetOptions>
+                <x:DisplayGridlines/>
+              </x:WorksheetOptions>
+            </x:ExcelWorksheet>
+          </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+      </xml>
+      <![endif]-->
+      <style>
+        body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; font-size: 11pt; }
+        .header-title { font-size: 16pt; font-weight: bold; color: #1E3A8A; margin-bottom: 4px; }
+        .header-sub { font-size: 10pt; color: #475569; margin-bottom: 14px; }
+        table { border-collapse: collapse; width: 100%; }
+        th { background-color: #2563EB; color: #FFFFFF; font-weight: bold; border: 1px solid #1E40AF; padding: 10px 8px; text-align: center; }
+        td { border: 1px solid #CBD5E1; padding: 6px 8px; vertical-align: top; }
+        tr:nth-child(even) { background-color: #F8FAFC; }
+      </style>
+    </head>
+    <body>
+      <div class="header-title">REKAPITULASI LAPORAN HARIAN KARYAWAN</div>
+      <div class="header-sub">Diekspor: ${new Date().toLocaleString('id-ID')} | Total Data: ${data.length} Laporan</div>
+      <table>
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Tanggal</th>
+            <th>Nama Karyawan</th>
+            <th>Jabatan</th>
+            <th>Project / Kegiatan</th>
+            <th>Lokasi</th>
+            <th>Unit Drone</th>
+            <th>Luas Area</th>
+            <th>Judul Laporan</th>
+            <th>Uraian Pekerjaan</th>
+            <th>Hasil Pekerjaan</th>
+            <th>Rencana Esok</th>
+            <th>Status</th>
+            <th>Dokumentasi</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+    </body>
+    </html>
+    `;
+
+    const nowStr = new Date().toISOString().slice(0, 10);
+    const filename = `rekap_laporan_${nowStr}.xls`;
+    res.setHeader('Content-Type', 'application/vnd.ms-excel; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(html);
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal mengekspor laporan ke Excel', error: err.message });
   }
 };
 
